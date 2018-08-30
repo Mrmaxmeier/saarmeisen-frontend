@@ -10,6 +10,11 @@
   "rules": {
     "object-literal-sort-keys": false,
     "member-access": false,
-    "no-console": false
+    "no-console": false,
+    "jsx-no-lambda": false,
+    "variable-name": false,
+    "prefer-const": false,
+    "ordered-imports": false,
+    "interface-name": false
   }
 }
