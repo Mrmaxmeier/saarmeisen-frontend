@@ -3,6 +3,7 @@ import * as React from 'react';
 import { IGameProtocol, IField, IStanding, IStep } from './protocol';
 
 import { GameGrid } from './GameGrid';
+import { FieldColors } from './FieldVis'
 
 interface State {
 	standings: IStanding[];
@@ -20,7 +21,7 @@ export class GameVis extends React.Component<Props, State> {
 		super(props);
 		this.state = {
 			step: 0,
-			standings: [],
+			standings: props.game.steps.length ? props.game.steps[0].standings : [],
 			fields: props.game.init.fields
 		};
 	}
@@ -29,7 +30,7 @@ export class GameVis extends React.Component<Props, State> {
 		if (prevProps.game !== this.props.game) {
 			this.setState({
 				step: 0,
-				standings: [],
+				standings: this.props.game.steps.length ? this.props.game.steps[0].standings : [],
 				fields: this.props.game.init.fields
 			});
 		}
@@ -53,18 +54,20 @@ export class GameVis extends React.Component<Props, State> {
 			<div style={{ width: '100%', height: '100%' }}>
 				<div>GameVis memes</div>
 				{this.state.standings.length ? (
-					<table>
+					<table style={{textAlign: 'center'}}>
 						<tbody>
 							<tr>
 								<th>Swarm</th>
+                <th>Color</th>
 								<th>Score</th>
 								<th>Ants</th>
 							</tr>
 							{this.state.standings.map(({ score, swarm_id, ants }, i) => (
 								<tr key={i}>
-									<th>{swarm_id}</th>
-									<th>{score}</th>
-									<th>{ants}</th>
+									<td>{swarm_id}</td>
+                  <td style={{backgroundColor: FieldColors[swarm_id]}}/>
+									<td>{score}</td>
+									<td>{ants}</td>
 								</tr>
 							))}
 						</tbody>

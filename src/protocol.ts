@@ -131,12 +131,21 @@ let standings = [ { swarm_id: 'A', score: 0, ants: 1 }, { swarm_id: 'B', score: 
 
 let steps: IStep[] = [];
 
+const dirs = [ 'northwest', 'west', 'southwest', 'southeast', 'east', 'northeast' ] as Direction[];
+
 for (let i = 0; i < 50; i++) {
 	let from = movementA[i % movementA.length];
 	let to = movementA[(i + 1) % movementA.length];
 	steps.push({
 		standings,
-		fields: [ field(from.x, from.y), field(to.x, to.y, ant(0, 'A')) ]
+		fields: [
+			field(from.x, from.y),
+			field(to.x, to.y, ant(0, 'A')),
+			field(2, 2, {
+				...ant(1, 'B'),
+				direction: dirs[(i + 1) % 6]
+			})
+		]
 	});
 }
 
