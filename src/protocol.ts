@@ -103,7 +103,8 @@ let fields: { [key: string]: IField } = {
 				values: [ true, true, false, false, true, true, false ]
 			}
 		]
-	}
+	},
+	'0, 2': { ...field(0, 2), type: '=' }
 };
 
 let init: IInit = {
@@ -133,7 +134,7 @@ let steps: IStep[] = [];
 
 const dirs = [ 'northwest', 'west', 'southwest', 'southeast', 'east', 'northeast' ] as Direction[];
 
-for (let i = 0; i < 50; i++) {
+for (let i = 0; i < 150; i++) {
 	let from = movementA[i % movementA.length];
 	let to = movementA[(i + 1) % movementA.length];
 	steps.push({
@@ -155,4 +156,4 @@ export const game: IGameProtocol = {
 };
 
 // console.log(JSON.stringify(game, null, 2));
-console.log(JSON.stringify(game));
+// console.log(JSON.stringify(game));

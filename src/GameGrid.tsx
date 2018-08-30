@@ -65,6 +65,16 @@ export class GameGrid extends React.Component<IProps> {
 					>
 						<line x1="0" y1="0" x2="0" y2="20" style={{ stroke: 'black', strokeWidth: 2 }} />
 					</pattern>
+					<pattern
+						id="dangerZone"
+						width="30"
+						height="30"
+						patternTransform="rotate(-45 0 0)"
+						patternUnits="userSpaceOnUse"
+					>
+						<polygon style={{fill: 'black' }} points="0,0 30,0 30,30 0,30" />
+						<line x1="0" y1="0" x2="0" y2="30" style={{ stroke: 'yellow', strokeWidth: 30 }} />
+					</pattern>
 				</defs>
 				<g transform={`translate(${this.props.size * Math.sqrt(3) / 2}, ${this.props.size})`}>
 					{this.props.fields.map((field) => (

@@ -28,14 +28,17 @@ function hexSVGString(size: number) {
 		.join(' ');
 }
 
-export class FieldVis extends React.Component<{ field: IField; size: number }> {
+export class FieldVis extends React.PureComponent<{ field: IField; size: number }> {
 	render() {
 		const { x, y, type, ant, food, markers } = this.props.field;
 		return (
 			<g>
 				<polygon
 					// style={{ fill: `rgb(${x * 50}, ${y * 50}, 128)` }}
-					style={{ fill: type === '#' ? 'url(#diagonalHatch)' : FieldColors[type] }}
+					style={{
+						fill:
+							type === '=' ? 'url(#dangerZone)' : type === '#' ? 'url(#diagonalHatch)' : FieldColors[type]
+					}}
 					className="hexagon"
 					points={hexSVGString(this.props.size)}
 				/>
@@ -51,7 +54,7 @@ export class FieldVis extends React.Component<{ field: IField; size: number }> {
 				{markers.length ? (
 					<text textAnchor="middle" alignmentBaseline="central">
 						MARKERS
-					</text >
+					</text>
 				) : null}
 
 				<text

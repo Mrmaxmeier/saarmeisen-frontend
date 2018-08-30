@@ -67,7 +67,6 @@ export class FileDropZone extends React.Component<IProps, { visible: boolean }> 
 		reader.onload = () => {
 			try {
 				const p = JSON.parse(reader.result as string);
-				console.log(p);
 				this.props.onData(p);
 			} catch (e) {
 				alert(e);
@@ -82,8 +81,7 @@ export class FileDropZone extends React.Component<IProps, { visible: boolean }> 
 	render() {
 		return (
 			<div>
-				DragnDrop Protocol file here
-				{this.props.children}
+				DragnDrop json files into the window 
 				<div
 					id="dragbox"
 					style={
@@ -119,7 +117,7 @@ export class FileDropZone extends React.Component<IProps, { visible: boolean }> 
 					}
 					ref={(e) => (this.dragBox = e!)}
 				>
-					Drop a file to Upload
+          nom nom nom 
 				</div>
 			</div>
 		);

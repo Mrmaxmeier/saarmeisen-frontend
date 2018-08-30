@@ -8,7 +8,8 @@ import { FieldColors } from './FieldVis'
 interface State {
 	standings: IStanding[];
 	fields: IField[];
-	step: number;
+  step: number;
+  stepTimer?: number;
 }
 
 interface Props {
@@ -19,22 +20,23 @@ interface Props {
 export class GameVis extends React.Component<Props, State> {
 	constructor(props: Props) {
 		super(props);
-		this.state = {
-			step: 0,
-			standings: props.game.steps.length ? props.game.steps[0].standings : [],
-			fields: props.game.init.fields
-		};
+		this.state = this.getInitialState(props.game)    
+    this.toggleAutoStep = this.toggleAutoStep.bind(this)
 	}
 
 	componentDidUpdate(prevProps: Props) {
 		if (prevProps.game !== this.props.game) {
-			this.setState({
-				step: 0,
-				standings: this.props.game.steps.length ? this.props.game.steps[0].standings : [],
-				fields: this.props.game.init.fields
-			});
+      this.setState(this.getInitialState(this.props.game))
 		}
-	}
+  }
+
+  getInitialState(game: IGameProtocol): State {
+    return {
+				step: 0,
+				standings: game.steps.length ? game.steps[0].standings : [],
+        fields: game.init.fields
+    }
+  }
 
 	apply(step: IStep, index: number): void {
 		let fields = this.state.fields.slice();
@@ -47,7 +49,24 @@ export class GameVis extends React.Component<Props, State> {
 			fields,
 			step: index + 1
 		});
-	}
+  }
+  
+  toggleAutoStep() {
+    if (this.state.stepTimer) {
+      clearInterval(this.state.stepTimer)
+      this.setState({ stepTimer: undefined })
+    } else {
+      const timer = setInterval(() => {
+        let next = this.state.step;
+        if (next >= this.props.game.steps.length) {
+          this.toggleAutoStep()
+        } else {
+          this.apply(this.props.game.steps[next], next);
+        }
+      }, 100);
+      this.setState({ stepTimer: timer as any as number })
+    }
+  }
 
 	render() {
 		return (
@@ -76,6 +95,11 @@ export class GameVis extends React.Component<Props, State> {
 				<div>
 					Step: {this.state.step} / {this.props.game.steps.length}
 				</div>
+        <button onClick={() => {
+          this.setState(this.getInitialState(this.props.game))
+        }}>Reset Game</button>
+        <button disabled={true}>Prev Step</button>
+        <button onClick={this.toggleAutoStep}>{this.state.stepTimer ? 'Stop' : 'Play'}</button>
 				<button
 					onClick={() => {
 						this.apply(this.props.game.steps[this.state.step], this.state.step);

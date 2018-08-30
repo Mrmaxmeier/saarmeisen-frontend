@@ -32,7 +32,7 @@ class App extends React.Component<{}, IState> {
 					<tbody>
 						<tr>
 							<th>Abcdefg</th>
-							<td>Test123</td>
+							<td><a href="https://github.com/Mrmaxmeier/saarmeisen-frontend">github.com/Mrmaxmeier/saarmeisen-frontend</a></td>
 						</tr>
 						<tr>
 							<th>Protocol</th>
