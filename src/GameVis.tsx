@@ -25,6 +25,16 @@ export class GameVis extends React.Component<Props, State> {
 		};
 	}
 
+	componentDidUpdate(prevProps: Props) {
+		if (prevProps.game !== this.props.game) {
+			this.setState({
+				step: 0,
+				standings: [],
+				fields: this.props.game.init.fields
+			});
+		}
+	}
+
 	apply(step: IStep, index: number): void {
 		let fields = this.state.fields.slice();
 		step.fields.forEach((f) => {
@@ -42,6 +52,24 @@ export class GameVis extends React.Component<Props, State> {
 		return (
 			<div style={{ width: '100%', height: '100%' }}>
 				<div>GameVis memes</div>
+				{this.state.standings.length ? (
+					<table>
+						<tbody>
+							<tr>
+								<th>Swarm</th>
+								<th>Score</th>
+								<th>Ants</th>
+							</tr>
+							{this.state.standings.map(({ score, swarm_id, ants }, i) => (
+								<tr key={i}>
+									<th>{swarm_id}</th>
+									<th>{score}</th>
+									<th>{ants}</th>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				) : null}
 				<div>
 					Step: {this.state.step} / {this.props.game.steps.length}
 				</div>

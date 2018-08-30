@@ -2,7 +2,7 @@ import * as React from 'react';
 import './App.css';
 import { FileDropZone } from './FileDropZone';
 import { GameVis } from './GameVis';
-import { game, IGameProtocol } from './protocol';
+import { game as sampleGame, IGameProtocol } from './protocol';
 
 interface IState {
 	size: number;
@@ -15,11 +15,15 @@ class App extends React.Component<{}, IState> {
 
 		this.state = {
 			size: 80,
-			game
+			game: sampleGame
 		};
+
+		this.onGameProtocol = this.onGameProtocol.bind(this);
 	}
 	onGameProtocol(data: any) {
 		console.log('onGameProtocol');
+		const game = data as IGameProtocol;
+		this.setState({ game });
 	}
 	public render() {
 		return (
