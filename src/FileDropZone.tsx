@@ -1,125 +1,126 @@
-import * as React from 'react';
+import * as React from "react";
 
 interface IProps {
-	onData: (result: any) => void;
+  onData: (result: any) => void;
 }
 
-export class FileDropZone extends React.Component<IProps, { visible: boolean }> {
-	private dragBox: HTMLDivElement;
-	constructor(props: IProps) {
-		super(props);
-		this.state = {
-			visible: false
-		};
-		this._onDragEnter = this._onDragEnter.bind(this);
-		this._onDragLeave = this._onDragLeave.bind(this);
-		this._onDragOver = this._onDragOver.bind(this);
-		this._onDrop = this._onDrop.bind(this);
-	}
+export class FileDropZone extends React.Component<
+  IProps,
+  { visible: boolean }
+> {
+  private dragBox: HTMLDivElement;
+  constructor(props: IProps) {
+    super(props);
+    this.state = {
+      visible: false
+    };
+    this._onDragEnter = this._onDragEnter.bind(this);
+    this._onDragLeave = this._onDragLeave.bind(this);
+    this._onDragOver = this._onDragOver.bind(this);
+    this._onDrop = this._onDrop.bind(this);
+  }
 
-	componentDidMount() {
-		window.addEventListener('mouseup', this._onDragLeave);
-		window.addEventListener('dragenter', this._onDragEnter);
-		window.addEventListener('dragover', this._onDragOver);
-		this.dragBox.addEventListener('dragleave', this._onDragLeave);
-		window.addEventListener('drop', this._onDrop);
-	}
+  componentDidMount() {
+    window.addEventListener("mouseup", this._onDragLeave);
+    window.addEventListener("dragenter", this._onDragEnter);
+    window.addEventListener("dragover", this._onDragOver);
+    this.dragBox.addEventListener("dragleave", this._onDragLeave);
+    window.addEventListener("drop", this._onDrop);
+  }
 
-	componentWillUnmount() {
-		window.removeEventListener('mouseup', this._onDragLeave);
-		window.removeEventListener('dragenter', this._onDragEnter);
-		window.addEventListener('dragover', this._onDragOver);
-		this.dragBox.removeEventListener('dragleave', this._onDragLeave);
-		window.removeEventListener('drop', this._onDrop);
-	}
+  componentWillUnmount() {
+    window.removeEventListener("mouseup", this._onDragLeave);
+    window.removeEventListener("dragenter", this._onDragEnter);
+    window.addEventListener("dragover", this._onDragOver);
+    this.dragBox.removeEventListener("dragleave", this._onDragLeave);
+    window.removeEventListener("drop", this._onDrop);
+  }
 
-	_onDragEnter(e: Event) {
-		this.setState({ visible: true });
-		e.stopPropagation();
-		e.preventDefault();
-		return false;
-	}
+  _onDragEnter(e: Event) {
+    this.setState({ visible: true });
+    e.stopPropagation();
+    e.preventDefault();
+    return false;
+  }
 
-	_onDragOver(e: Event) {
-		e.preventDefault();
-		e.stopPropagation();
-		return false;
-	}
+  _onDragOver(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  }
 
-	_onDragLeave(e: Event) {
-		this.setState({ visible: false });
-		e.stopPropagation();
-		e.preventDefault();
-		return false;
-	}
+  _onDragLeave(e: Event) {
+    this.setState({ visible: false });
+    e.stopPropagation();
+    e.preventDefault();
+    return false;
+  }
 
-	_onDrop(e: DragEvent) {
-		e.preventDefault();
-		const files = e.dataTransfer.files;
-		if (files.length !== 1) {
-			alert('invalid file count on DragEvent');
-			return;
-		}
-		const file = files.item(0)!;
+  _onDrop(e: DragEvent) {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length !== 1) {
+      alert("invalid file count on DragEvent");
+      return;
+    }
+    const file = files.item(0)!;
 
-		const reader = new FileReader();
+    const reader = new FileReader();
 
-		reader.onload = () => {
-			try {
-				const p = JSON.parse(reader.result as string);
-				this.props.onData(p);
-			} catch (e) {
-				alert(e);
-			}
-		};
+    reader.onload = () => {
+      try {
+        const p = JSON.parse(reader.result as string);
+        this.props.onData(p);
+      } catch (e) {
+        alert(e);
+      }
+    };
 
-		reader.readAsText(file);
-		this.setState({ visible: false });
-		return false;
-	}
+    reader.readAsText(file);
+    this.setState({ visible: false });
+    return false;
+  }
 
-	render() {
-		return (
-			<div>
-				DragnDrop json files into the window 
-				<div
-					id="dragbox"
-					style={
-						!this.state.visible ? (
-							{
-								display: 'none'
-							}
-						) : (
-							{
-								background: 'rgba(17, 109, 210, 0.5)',
-								border: '15px solid #0c3158',
-								display: 'flex',
-								position: 'fixed',
-								width: '100%',
-								height: '100%',
-								zIndex: 5,
-								top: 0,
-								left: 0,
-								right: 0,
-								bottom: 0,
-								flex: 1,
-								justifyContent: 'center',
-								alignItems: 'center',
-								textAlign: 'center',
-								fontSize: '30px',
-								fontWeight: 600,
-								color: '#fff',
-								letterSpacing: '1px',
-								margin: 'auto',
-								fontFamily: 'Roboto'
-							}
-						)
-					}
-					ref={(e) => (this.dragBox = e!)}
-				>
-          nom nom nom 
-				</div>
-			</div>
-		);
-	}
+  render() {
+    return (
+      <div>
+        DragnDrop json files into the window
+        <div
+          id="dragbox"
+          style={
+            !this.state.visible
+              ? {
+                  display: "none"
+                }
+              : {
+                  background: "rgba(17, 109, 210, 0.5)",
+                  border: "15px solid #0c3158",
+                  display: "flex",
+                  position: "fixed",
+                  width: "100%",
+                  height: "100%",
+                  zIndex: 5,
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  flex: 1,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  textAlign: "center",
+                  fontSize: "30px",
+                  fontWeight: 600,
+                  color: "#fff",
+                  letterSpacing: "1px",
+                  margin: "auto",
+                  fontFamily: "Roboto"
+                }
+          }
+          ref={e => (this.dragBox = e!)}
+        >
+          nom nom nom
+        </div>
+      </div>
+    );
+  }
 }
