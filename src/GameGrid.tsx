@@ -1,12 +1,14 @@
 import * as React from "react";
 import { FieldVis } from "./FieldVis";
 import { game, IField } from "./protocol";
+import { DebuggingSelector } from './GameVis'
 
 interface IProps {
   size: number;
   fields: IField[];
   width: number;
   height: number;
+  debuggingSelector?: (sel: DebuggingSelector) => void;
 }
 
 export class GameGrid extends React.Component<IProps> {
@@ -107,7 +109,7 @@ export class GameGrid extends React.Component<IProps> {
               key={`${field.x},${field.y}`}
               transform={this.translateHexagon(field.x, field.y)}
             >
-              <FieldVis size={this.props.size} field={field} />
+              <FieldVis size={this.props.size} field={field} debuggingSelector={this.props.debuggingSelector} />
             </g>
           ))}
         </g>

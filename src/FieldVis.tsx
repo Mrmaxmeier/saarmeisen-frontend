@@ -1,6 +1,7 @@
 import * as React from "react";
 import { AntVis } from "./AntVis";
 import { IField } from "./protocol";
+import { DebuggingSelector } from "./GameVis";
 
 export const FieldColors = {
   ".": "lightgrey",
@@ -28,10 +29,13 @@ function hexSVGString(size: number) {
     .join(" ");
 }
 
-export class FieldVis extends React.PureComponent<{
+interface Props {
   field: IField;
   size: number;
-}> {
+  debuggingSelector?: (sel: DebuggingSelector) => void;
+}
+
+export class FieldVis extends React.PureComponent<Props> {
   render() {
     const { x, y, type, ant, food, markers } = this.props.field;
 
@@ -43,6 +47,7 @@ export class FieldVis extends React.PureComponent<{
     return (
       <g>
         <polygon
+          onClick={() => this.props.debuggingSelector && this.props.debuggingSelector({ field: { x, y} })}
           // style={{ fill: `rgb(${x * 50}, ${y * 50}, 128)` }}
           style={{
             fill:
@@ -61,7 +66,7 @@ export class FieldVis extends React.PureComponent<{
             alignmentBaseline="central"
             transform={`translate(0, ${-this.props.size * 0.7})`}
           >
-            F{food}
+            🍔{food}
           </text>
         ) : null}
 
@@ -78,7 +83,7 @@ export class FieldVis extends React.PureComponent<{
         >
           {x + ", " + y}
         </text>
-        {ant ? <AntVis size={this.props.size} ant={ant} /> : null}
+        {ant ? <AntVis size={this.props.size} ant={ant} debuggingSelector={this.props.debuggingSelector} /> : null}
       </g>
     );
   }
