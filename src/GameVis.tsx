@@ -36,8 +36,11 @@ export class GameVis extends React.Component<Props, State> {
 
 	componentDidUpdate(prevProps: Props) {
 		if (prevProps.game !== this.props.game) {
-			this.stepManager = new StepManager(this.props.game);
-			this.setState(this.stepManager.getState());
+			// TODO: this is bad
+			this.setState({ debugging: undefined }, () => {
+				this.stepManager = new StepManager(this.props.game);
+				this.setState(this.stepManager.getState());
+			});
 		}
 	}
 
@@ -146,11 +149,11 @@ export class GameVis extends React.Component<Props, State> {
 	debugInfo(debugging: DebuggingSelector): any {
 		if (debugging.field !== undefined) {
 			const { x, y } = debugging.field;
-			return this.state.fields.find(o => o.x === x && o.y === y);
+			return this.state.fields.find((o) => o.x === x && o.y === y);
 		} else if (debugging.ant !== undefined) {
-			let field = this.state.fields.find(f => !!f.ant && f.ant.id === debugging.ant)
-			return field!.ant!
+			let field = this.state.fields.find((f) => !!f.ant && f.ant.id === debugging.ant);
+			return field!.ant!;
 		}
-		return { invalid: true }
+		return { invalid: true };
 	}
 }
