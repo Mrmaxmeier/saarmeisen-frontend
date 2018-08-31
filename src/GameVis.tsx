@@ -144,10 +144,10 @@ export class GameVis extends React.Component<Props, State> {
 		);
 	}
 	debugInfo(debugging: DebuggingSelector): any {
-		if (debugging.field) {
+		if (debugging.field !== undefined) {
 			const { x, y } = debugging.field;
 			return this.state.fields.find(o => o.x === x && o.y === y);
-		} else if (debugging.ant) {
+		} else if (debugging.ant !== undefined) {
 			let field = this.state.fields.find(f => !!f.ant && f.ant.id === debugging.ant)
 			return field!.ant!
 		}
