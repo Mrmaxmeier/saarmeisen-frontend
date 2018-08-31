@@ -34,6 +34,12 @@ export class FieldVis extends React.PureComponent<{
 }> {
   render() {
     const { x, y, type, ant, food, markers } = this.props.field;
+
+    let hasMarkers = markers.length !== 0;
+    if (hasMarkers) {
+      hasMarkers = !!markers.find((a) => a.values.indexOf(true) !== -1)
+    }
+
     return (
       <g>
         <polygon
@@ -59,7 +65,7 @@ export class FieldVis extends React.PureComponent<{
           </text>
         ) : null}
 
-        {markers.length ? (
+        {hasMarkers ? (
           <text textAnchor="middle" alignmentBaseline="central">
             MARKERS
           </text>
