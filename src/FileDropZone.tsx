@@ -60,7 +60,7 @@ export class FileDropZone extends React.Component<
     e.preventDefault();
     const files = e.dataTransfer.files;
     if (files.length !== 1) {
-      alert("invalid file count on DragEvent");
+      alert("expected one file");
       return;
     }
     const file = files.item(0)!;
@@ -94,7 +94,6 @@ export class FileDropZone extends React.Component<
                 }
               : {
                   background: "rgba(17, 109, 210, 0.5)",
-                  border: "15px solid #0c3158",
                   display: "flex",
                   position: "fixed",
                   width: "100%",

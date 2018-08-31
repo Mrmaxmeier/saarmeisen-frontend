@@ -52,9 +52,9 @@ export class GameGrid extends React.Component<IProps> {
     ];
   }
   public translateHexagon(x: number, y: number) {
-    return `translate(${(x + (y % 2) / 2) *
-      this.props.size *
-      Math.sqrt(3)}, ${(y * this.props.size * 3) / 2})`;
+    let tX = (x + (y % 2) / 2) * this.props.size * Math.sqrt(3);
+    let tY = (y * this.props.size * 3) / 2;
+    return `translate(${tX}, ${tY})`;
   }
   public render() {
     return (

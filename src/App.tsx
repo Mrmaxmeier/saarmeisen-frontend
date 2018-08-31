@@ -31,12 +31,16 @@ class App extends React.Component<{}, IState> {
         <table>
           <tbody>
             <tr>
-              <th>Abcdefg</th>
+              <th>Issue Tracker</th>
               <td>
                 <a href="https://github.com/Mrmaxmeier/saarmeisen-frontend">
                   github.com/Mrmaxmeier/saarmeisen-frontend
                 </a>
               </td>
+            </tr>
+            <tr>
+              <th>TODO</th>
+              <td>Turnierserver</td>
             </tr>
             <tr>
               <th>Protocol</th>

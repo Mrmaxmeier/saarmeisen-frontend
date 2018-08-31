@@ -58,6 +58,7 @@ export class FieldVis extends React.PureComponent<{
             F{food}
           </text>
         ) : null}
+
         {markers.length ? (
           <text textAnchor="middle" alignmentBaseline="central">
             MARKERS
