@@ -41,13 +41,16 @@ export class FieldVis extends React.PureComponent<Props> {
 
     let hasMarkers = markers.length !== 0;
     if (hasMarkers) {
-      hasMarkers = !!markers.find((a) => a.values.indexOf(true) !== -1)
+      hasMarkers = !!markers.find(a => a.values.indexOf(true) !== -1);
     }
 
     return (
       <g>
         <polygon
-          onClick={() => this.props.debuggingSelector && this.props.debuggingSelector({ field: { x, y} })}
+          onClick={() =>
+            this.props.debuggingSelector &&
+            this.props.debuggingSelector({ field: { x, y } })
+          }
           // style={{ fill: `rgb(${x * 50}, ${y * 50}, 128)` }}
           style={{
             fill:
@@ -66,7 +69,8 @@ export class FieldVis extends React.PureComponent<Props> {
             alignmentBaseline="central"
             transform={`translate(0, ${-this.props.size * 0.7})`}
           >
-            🍔{food}
+            🍔
+            {food}
           </text>
         ) : null}
 
@@ -83,7 +87,13 @@ export class FieldVis extends React.PureComponent<Props> {
         >
           {x + ", " + y}
         </text>
-        {ant ? <AntVis size={this.props.size} ant={ant} debuggingSelector={this.props.debuggingSelector} /> : null}
+        {ant ? (
+          <AntVis
+            size={this.props.size}
+            ant={ant}
+            debuggingSelector={this.props.debuggingSelector}
+          />
+        ) : null}
       </g>
     );
   }
