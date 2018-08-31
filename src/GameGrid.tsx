@@ -60,7 +60,7 @@ export class GameGrid extends React.Component<IProps> {
     return (
       <svg
         style={{
-          height: (this.props.size * (this.props.height + 0.5) * 3) / 2,
+          height: (this.props.size * (this.props.height + 1/3) * 3) / 2,
           width: this.props.size * (this.props.width + 0.5) * Math.sqrt(3)
         }}
       >
