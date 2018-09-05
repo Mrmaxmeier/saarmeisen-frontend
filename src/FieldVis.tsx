@@ -85,13 +85,13 @@ export class FieldVis extends React.PureComponent<Props> {
           </text>
         ) : null}
 
-        <text
+        {this.props.size > 70 ? <text
           textAnchor="middle"
           alignmentBaseline="central"
           transform={`translate(0, ${this.props.size * 0.7})`}
         >
           {x + ", " + y}
-        </text>
+        </text> : null}
         {ant ? (
           <AntVis
             size={this.props.size}
