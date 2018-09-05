@@ -12,6 +12,7 @@
     "member-access": false,
     "no-console": false,
     "jsx-no-lambda": false,
+    "jsx-boolean-value": false,
     "variable-name": false,
     "prefer-const": false,
     "ordered-imports": false,

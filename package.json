@@ -12,8 +12,12 @@
     "typescript": "^3.0.1"
   },
   "dependencies": {
+    "@types/socket.io-client": "^1.4.32",
     "react": "^16.4.2",
-    "react-dom": "^16.4.2"
+    "react-dom": "^16.4.2",
+    "semantic-ui-css": "^2.3.3",
+    "semantic-ui-react": "^0.82.3",
+    "socket.io-client": "^2.1.1"
   },
   "scripts": {
     "start": "react-scripts-ts start",

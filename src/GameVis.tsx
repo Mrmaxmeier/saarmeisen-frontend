@@ -71,7 +71,6 @@ export class GameVis extends React.Component<Props, State> {
     const { width, height } = this.props.game.init;
     return (
       <div style={{ width: "100%", height: "100%" }}>
-        <div>GameVis memes</div>
         {this.state.standings.length ? (
           <table style={{ textAlign: "center" }}>
             <tbody>
