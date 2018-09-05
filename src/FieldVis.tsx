@@ -8,7 +8,12 @@ export const FieldColors = {
   "#": "grey",
   A: "red",
   B: "blue",
-  C: "green"
+  C: "green",
+  D: "purple",
+  E: "yellow",
+  F: "cyan",
+  G: "pink",
+  H: "orange"
 };
 
 function hexSVGString(size: number) {
