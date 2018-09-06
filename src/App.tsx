@@ -1,11 +1,20 @@
 import * as React from "react";
-import { Button, Header, Image, Icon, Modal, Container, Dropdown, Menu } from "semantic-ui-react";
-import { connect } from 'socket.io-client'
+import {
+  Button,
+  Header,
+  Image,
+  Icon,
+  Modal,
+  Container,
+  Dropdown,
+  Menu
+} from "semantic-ui-react";
 
 import "semantic-ui-css/semantic.min.css";
 import "./App.css";
 import { FileDropZone } from "./FileDropZone";
 import { GameVis } from "./GameVis";
+import { Turnierserver } from "./Turnierserver"
 import { game as sampleGame, IGameProtocol } from "./protocol";
 
 interface IState {
@@ -15,7 +24,6 @@ interface IState {
 }
 
 class App extends React.Component<{}, IState> {
-  private ws: any // TODO: @types/socket.io-client
 
   constructor(props: {}) {
     super(props);
@@ -29,17 +37,15 @@ class App extends React.Component<{}, IState> {
     this.onGameProtocol = this.onGameProtocol.bind(this);
   }
 
-  componentDidMount() {
-    console.log("hi");
-    localStorage.getItem("turnierserver_conset");
-  }
-
   onTurnierserver() {
-    if (this.ws === undefined) {
-      this.ws = connect(location.hostname)
-      this.ws.on('test', (data: any) => console.log('ws:', data))
+    if (
+      location.hostname !== "localhost" &&
+      localStorage.getItem("consent") === null
+    ) {
+      this.setState({ page: "consent" });
+    } else {
+      this.setState({ page: 'turnierserver' })
     }
-    this.setState({ page: 'consent' })
   }
 
   onGameProtocol(data: any) {
@@ -107,16 +113,7 @@ class App extends React.Component<{}, IState> {
             <Menu.Item
               as="a"
               active={this.state.page === "turnierserver"}
-              onClick={() => {
-                if (
-                  location.hostname !== "localhost" &&
-                  localStorage.getItem("consent") === null
-                ) {
-                  this.setState({ page: "consent" });
-                } else {
-                  this.setState({ page: "turnierserver" });
-                }
-              }}
+              onClick={() => this.onTurnierserver()}
             >
               Turnierserver
             </Menu.Item>
@@ -182,6 +179,8 @@ class App extends React.Component<{}, IState> {
             </div>
           </Container>
         ) : null}
+
+        {this.state.page === 'turnierserver' ? <Turnierserver /> : null}
       </div>
     );
   }
