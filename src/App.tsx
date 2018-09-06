@@ -14,7 +14,7 @@ import "semantic-ui-css/semantic.min.css";
 import "./App.css";
 import { FileDropZone } from "./FileDropZone";
 import { GameVis } from "./GameVis";
-import { Turnierserver } from "./Turnierserver"
+import { Turnierserver } from "./Turnierserver";
 import { game as sampleGame, IGameProtocol } from "./protocol";
 
 interface IState {
@@ -24,7 +24,6 @@ interface IState {
 }
 
 class App extends React.Component<{}, IState> {
-
   constructor(props: {}) {
     super(props);
 
@@ -44,7 +43,7 @@ class App extends React.Component<{}, IState> {
     ) {
       this.setState({ page: "consent" });
     } else {
-      this.setState({ page: 'turnierserver' })
+      this.setState({ page: "turnierserver" });
     }
   }
 
@@ -55,42 +54,6 @@ class App extends React.Component<{}, IState> {
   }
 
   public render() {
-    if (this.state.page === "consent") {
-      return (
-        <div>
-          <Modal trigger={<Button>Basic Modal</Button>} basic size="small">
-            <Header icon="warning sign" content="Sie begehn eine Straftat" />
-            <Modal.Content image>
-              <Image wrapped size="medium" src={require("./stroofdood.png")} />
-              <span>
-                <p>Disclaimer: Keine echten KIs hochladen und so.</p>
-                <p>Die Ameisen-Brains werden:</p>
-                <ul>
-                  <li>Auf dem Server in einer Datenbank gespeichert</li>
-                  <li>In einem Rating für neue Spiele verarbeitet</li>
-                  <li>Ihre Strategien in öffentlichen Spielen verraten</li>
-                </ul>
-                <p>
-                  Bist du damit einverstanden, dass die ominöse Ente deine
-                  KI-Strategien zur Weltherrschaft ausnutzen wird?
-                </p>
-              </span>
-            </Modal.Content>
-            <Modal.Actions>
-              <Button basic color="red" inverted>
-                <Icon name="remove" /> Nein
-              </Button>
-              <Button color="green" inverted>
-                <Icon name="checkmark" /> Doch
-              </Button>
-              <Button color="green" inverted>
-                <Icon name="checkmark" /> Ooh!
-              </Button>
-            </Modal.Actions>
-          </Modal>
-        </div>
-      );
-    }
     return (
       <div>
         <Menu fixed="top" inverted>
@@ -180,7 +143,47 @@ class App extends React.Component<{}, IState> {
           </Container>
         ) : null}
 
-        {this.state.page === 'turnierserver' ? <Turnierserver /> : null}
+        {this.state.page === "turnierserver" ? <Turnierserver /> : null}
+
+        {this.state.page === "consent" ? (
+            <Modal trigger={<Button>Basic Modal</Button>} basic size="small" open onClose={() => this.setState({ page: 'vis'})}>
+              <Header icon="warning sign" content="Sie begehn eine Straftat" />
+              <Modal.Content image>
+                <Image
+                  wrapped
+                  size="medium"
+                  src={require("./stroofdood.png")}
+                />
+                <span>
+                  <p>Disclaimer: Keine echten KIs hochladen und so.</p>
+                  <p>Die Ameisen-Brains werden:</p>
+                  <ul>
+                    <li>Auf dem Server in einer Datenbank gespeichert</li>
+                    <li>In einem Rating für neue Spiele verarbeitet</li>
+                    <li>Ihre Strategien in öffentlichen Spielen verraten</li>
+                  </ul>
+                  <p>
+                    Bist du damit einverstanden, dass die ominöse Ente deine
+                    KI-Strategien zur Weltherrschaft ausnutzen wird?
+                  </p>
+                </span>
+              </Modal.Content>
+              <Modal.Actions>
+                <Button basic color="red" inverted onClick={() => this.setState({ page: 'vis' })}>
+                  <Icon name="remove" /> Nein
+                </Button>
+                <Button color="green" inverted onClick={() => this.setState({ page: 'turnierserver' })}>
+                  <Icon name="checkmark" /> Doch
+                </Button>
+                <Button color="green" inverted onClick={() => {
+                  localStorage.setItem('consent', 'ooh')
+                  this.setState({ page: 'turnierserver' })
+                }}>
+                  <Icon name="checkmark" /> Ooh!
+                </Button>
+              </Modal.Actions>
+            </Modal>
+        ) : null}
       </div>
     );
   }
