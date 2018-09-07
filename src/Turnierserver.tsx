@@ -8,7 +8,9 @@ import {
   Form,
   TextArea,
   Button,
-  Table
+  Message,
+  Table,
+  Input
 } from "semantic-ui-react";
 import { connect } from "socket.io-client";
 import { IGameProtocol } from "./protocol";
@@ -22,7 +24,10 @@ interface RankingEntry {
 }
 
 interface State {
-  page: "ranking" | "submitMap" | "submitBrain";
+  page: "ranking" | "submitMap" | "submitBrain" | "visGame";
+  status: string;
+  visID?: string;
+  visGame?: IGameProtocol;
   ranking?: RankingEntry[];
   mapPreview?: IGameProtocol;
 }
@@ -30,10 +35,13 @@ interface State {
 export class Turnierserver extends React.Component<{}, State> {
   private ws: any; // TODO: @types/socket.io-client
   private mapForm: TextArea;
+  private brainForm: TextArea;
+
   constructor(props: {}) {
     super(props);
     this.state = {
-      page: "ranking"
+      page: "ranking",
+      status: "connecting..."
     };
     this.handleItemClick = this.handleItemClick.bind(this);
   }
@@ -45,9 +53,17 @@ export class Turnierserver extends React.Component<{}, State> {
   }
   componentDidMount() {
     const host =
-      location.hostname === "localhost" ? "localhost:3044" : location.hostname;
+      location.hostname === "ente.ninja" ? "ente.ninja" : location.hostname + ":3044";
     this.ws = connect(host);
-    this.ws.on("test", (data: any) => console.log("ws:", data));
+    this.ws.on("connect", () =>
+      this.setState({ status: "connection established" })
+    );
+    this.ws.on("disconnect", () =>
+      this.setState({
+        status: "disconnected. will reconnect once server is back up"
+      })
+    );
+    this.ws.on("status", (data: string) => this.setState({ status: data }));
     this.ws.on("mapResult", (data: any) => {
       console.log("mapResult", data);
       const mapPreview = JSON.parse(data);
@@ -57,6 +73,11 @@ export class Turnierserver extends React.Component<{}, State> {
       console.log("ranking", data);
       this.setState({ ranking: JSON.parse(data) });
     });
+
+    this.ws.on("gameData", (data: string) => {
+      (window as any).gameData = data
+      this.setState({ visGame: JSON.parse(data) })
+    })
 
     this.ws.emit("fetchRanking");
   }
@@ -93,9 +114,20 @@ export class Turnierserver extends React.Component<{}, State> {
           >
             Submit Brain
           </Menu.Item>
+
+          <Menu.Item
+            name="visGame"
+            active={activeItem === "visGame"}
+            onClick={this.handleItemClick}
+          >
+            Visualize Game
+          </Menu.Item>
         </Menu>
 
         <Segment>
+          <Message info>
+            <p>{this.state.status}</p>
+          </Message>
           {activeItem === "ranking" ? (
             <>
               <Dimmer active={this.state.ranking === undefined}>
@@ -128,7 +160,7 @@ export class Turnierserver extends React.Component<{}, State> {
               <Form>
                 <Form.Field>
                   <label>Map Data</label>
-                  <TextArea
+                  <TextArea style={{fontFamily: 'monospace'}}
                     placeholder={"2\n2\nA.\n.B"}
                     ref={e => (this.mapForm = e!)}
                   />
@@ -179,10 +211,65 @@ export class Turnierserver extends React.Component<{}, State> {
               ) : null}
             </>
           ) : null}
+
+          {activeItem === "submitBrain" ? (
+            <>
+              <Form>
+                <Form.Field>
+                  <label>Brain Data</label>
+                  <TextArea style={{fontFamily: 'monospace'}}
+                    placeholder={'brain "noop" { jump 0\n}'}
+                    ref={e => (this.brainForm = e!)}
+                  />
+                </Form.Field>
+                <Button.Group fluid>
+                  <Button
+                    type="submit"
+                    basic
+                    color="yellow"
+                    onClick={() => {
+                      const brainStr = (this.brainForm as any).ref.value;
+                      this.ws.emit("brainRequest", brainStr);
+                    }}
+                  >
+                    Qualify brain
+                  </Button>
+                </Button.Group>
+              </Form>
+            </>
+          ) : null}
+
+          {activeItem === "visGame" ? (
+            <>
+              <Form>
+                <Form.Field>
+                  <label>Game ID</label>
+                  <Input value={this.state.visID || ''} onChange={e => this.setState({ visID: (e.target as any).value })} />
+                </Form.Field>
+                <Button.Group fluid>
+                  <Button
+                    type="submit"
+                    basic
+                    color="green"
+                    onClick={() => {
+                      this.ws.emit("loadGame", JSON.stringify({ key: this.state.visID }));
+                    }}
+                  >
+                    Query Database
+                  </Button>
+                </Button.Group>
+              </Form>
+              {this.state.visGame ? (
+                this.state.visGame.init !== null ? (
+                  <GameVis size={60} game={this.state.visGame} />
+                ) : (
+                  "init empty"
+                )
+              ) : null}
+            </>
+          ) : null}
         </Segment>
       </Container>
     );
   }
 }
-
-// placeholder="brain &quot;abc&quot; { jump 0 }"

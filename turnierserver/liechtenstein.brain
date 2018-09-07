@@ -1,0 +1,26 @@
+brain "liechtenstein" {
+  sense ahead food else 4
+  move else 0
+  pickup else 0
+  jump 12
+  flip 3 else 7
+  turn left
+  jump 0
+  flip 2 else 10
+  turn right
+  jump 0
+  move else 4
+  jump 0
+  sense ahead home else 16
+  move else 12
+  drop else 15
+  jump 0
+  flip 3 else 19
+  turn left
+  jump 12
+  flip 2 else 22
+  turn right
+  jump 12
+  move else 16
+  jump 12
+}
