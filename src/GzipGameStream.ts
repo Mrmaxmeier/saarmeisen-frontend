@@ -4,12 +4,19 @@ import { IStepManager, GameState, applyFieldChange } from "./StepManager";
 
 export class GzipGameStream implements IStepManager {
   public init: IInit;
+
+  private data: Uint8Array;
   private stream: JsonGZIPStream;
   private state: GameState;
   private buffer: IStep | null;
 
   constructor(data: Uint8Array) {
-    this.stream = new JsonGZIPStream(data);
+    this.data = data;
+    this.reset();
+  }
+
+  reset() {
+    this.stream = new JsonGZIPStream(this.data);
     let first = this.stream.fsm_step();
     this.init = first.init!;
     this.buffer = this.stream.fsm_step().step!;
@@ -70,7 +77,6 @@ export class JsonGZIPStream {
   constructor(binData: Uint8Array) {
     this.inflate = new Inflate();
     this.inflate.onData = this.processChunk.bind(this);
-    console.log("binData", binData);
     this.binData = binData;
     this.chunks = [];
     this.i = 0;

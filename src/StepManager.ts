@@ -9,6 +9,7 @@ export interface GameState {
 
 export interface IStepManager {
   init: IInit;
+  reset: () => void;
   hasNext: () => boolean;
   hasPrev: () => boolean;
   next: () => GameState;
@@ -41,6 +42,10 @@ export class StepManager implements IStepManager {
       currentStepIndex: 0,
       stepCount: game.steps.length
     };
+  }
+
+  reset() {
+    // NOOP, handled by constructor
   }
 
   hasNext(): boolean {

@@ -118,6 +118,7 @@ export class GameVis extends React.Component<Props, State> {
         <button
           onClick={() => {
             this.stepManager = this.getStepManager(this.props.game);
+            this.stepManager.reset()
             this.setState(this.stepManager.getState());
           }}
         >
