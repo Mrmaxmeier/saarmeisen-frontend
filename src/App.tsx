@@ -15,11 +15,12 @@ import "./App.css";
 import { FileDropZone } from "./FileDropZone";
 import { GameVis } from "./GameVis";
 import { Turnierserver } from "./Turnierserver";
+import { GzipGameStream } from './GzipGameStream'
 import { game as sampleGame, IGameProtocol } from "./protocol";
 
 interface IState {
   size: number;
-  game: IGameProtocol;
+  game: IGameProtocol | GzipGameStream;
   page: "vis" | "consent" | "turnierserver";
 }
 
@@ -47,10 +48,19 @@ class App extends React.Component<{}, IState> {
     }
   }
 
-  onGameProtocol(data: any) {
-    console.log("onGameProtocol");
-    const game = data as IGameProtocol;
-    this.setState({ game });
+  onGameProtocol(filename: string, logfile: ArrayBuffer) {
+    console.log("onGameProtocol", filename);
+    if (filename.endsWith(".json")) {
+      let text = new TextDecoder("utf-8").decode(logfile);
+      const game = JSON.parse(text) as IGameProtocol;
+      this.setState({ game });
+    } else if (filename.endsWith(".json.gz")) {
+      console.log('stream memes', logfile);
+      let buf = new Uint8Array(logfile);
+      this.setState({ game: new GzipGameStream(buf) })
+    } else {
+      console.error('can\'t handle', filename)
+    }
   }
 
   public render() {
@@ -114,13 +124,19 @@ class App extends React.Component<{}, IState> {
                   </td>
                 </tr>
                 <tr>
-                  <th>TODO</th>
-                  <td>Turnierserver</td>
-                </tr>
-                <tr>
                   <th>Protocol</th>
                   <td>
-                    <FileDropZone onData={this.onGameProtocol} />
+                    <FileDropZone onData={this.onGameProtocol}>
+                      DragnDrop {"{.json,.json.gz}"} files into the window
+                    </FileDropZone>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Note</th>
+                  <td>
+                    Only reasonable .json.gz files are supported. <br />
+                    They're streamed to combat back-pressure, so you won't be
+                    able to undo moves.
                   </td>
                 </tr>
                 <tr>
@@ -146,43 +162,62 @@ class App extends React.Component<{}, IState> {
         {this.state.page === "turnierserver" ? <Turnierserver /> : null}
 
         {this.state.page === "consent" ? (
-            <Modal trigger={<Button>Basic Modal</Button>} basic size="small" open onClose={() => this.setState({ page: 'vis'})}>
-              <Header icon="warning sign" content="Sie begehn eine Straftat" />
-              <Modal.Content image>
-                <Image
-                  wrapped
-                  size="medium"
-                  src={require("./stroofdood.png")}
-                />
-                <span>
-                  <p>Disclaimer: Keine echten KIs hochladen und so.</p>
-                  <p>Die Ameisen-Brains werden:</p>
-                  <ul>
-                    <li>Auf dem Server in einer Datenbank gespeichert</li>
-                    <li>In einem Rating für neue Spiele verarbeitet</li>
-                    <li>Ihre Strategien in öffentlichen Spielen verraten</li>
-                  </ul>
-                  <p>
-                    Bist du damit einverstanden, dass die ominöse Ente deine
-                    KI-Strategien zur Weltherrschaft ausnutzen wird?
-                  </p>
-                </span>
-              </Modal.Content>
-              <Modal.Actions>
-                <Button basic color="red" inverted onClick={() => this.setState({ page: 'vis' })}>
-                  <Icon name="remove" /> Nein
-                </Button>
-                <Button color="green" inverted onClick={() => this.setState({ page: 'turnierserver' })}>
-                  <Icon name="checkmark" /> Doch
-                </Button>
-                <Button color="green" inverted onClick={() => {
-                  localStorage.setItem('consent', 'ooh')
-                  this.setState({ page: 'turnierserver' })
-                }}>
-                  <Icon name="checkmark" /> Ooh!
-                </Button>
-              </Modal.Actions>
-            </Modal>
+          <Modal
+            trigger={<Button>Basic Modal</Button>}
+            basic
+            size="small"
+            open
+            onClose={() => this.setState({ page: "vis" })}
+          >
+            <Header icon="warning sign" content="Sie begehn eine Straftat" />
+            <Modal.Content image>
+              <Image wrapped size="medium" src={require("./stroofdood.png")} />
+              <span>
+                <p>Disclaimer: Keine echten KIs hochladen und so.</p>
+                <p>Die Ameisen-Brains werden:</p>
+                <ul>
+                  <li>Auf dem Server in einer Datenbank gespeichert</li>
+                  <li>In einem Rating für neue Spiele verarbeitet</li>
+                  <li>Ihre Strategien in öffentlichen Spielen verraten</li>
+                </ul>
+                <p>
+                  Bist du damit einverstanden, dass die ominöse Ente deine
+                  KI-Strategien zur Weltherrschaft ausnutzen wird?
+                </p>
+                <p>
+                  <b>Offizielle Info: </b>
+                  Plagiate fuehren zum Ausschluss beider Gruppen.
+                </p>
+              </span>
+            </Modal.Content>
+            <Modal.Actions>
+              <Button
+                basic
+                color="red"
+                inverted
+                onClick={() => this.setState({ page: "vis" })}
+              >
+                <Icon name="remove" /> Nein
+              </Button>
+              <Button
+                color="green"
+                inverted
+                onClick={() => this.setState({ page: "turnierserver" })}
+              >
+                <Icon name="checkmark" /> Doch
+              </Button>
+              <Button
+                color="green"
+                inverted
+                onClick={() => {
+                  localStorage.setItem("consent", "ooh");
+                  this.setState({ page: "turnierserver" });
+                }}
+              >
+                <Icon name="checkmark" /> Ooh!
+              </Button>
+            </Modal.Actions>
+          </Modal>
         ) : null}
       </div>
     );

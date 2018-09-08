@@ -17,6 +17,8 @@
     "variable-name": false,
     "prefer-const": false,
     "ordered-imports": false,
+    "max-classes-per-file": false,
     "interface-name": false
-  }
+  },
+  "defaultSeverity": "warning"
 }

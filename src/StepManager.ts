@@ -1,22 +1,45 @@
-import { IGameProtocol, IField, IStanding } from "./protocol";
+import { IGameProtocol, IInit, IField, IStanding } from "./protocol";
 
-interface GameState {
+export interface GameState {
   standings: IStanding[];
   fields: IField[];
   currentStepIndex: number;
+  stepCount: number | string;
 }
 
-export class StepManager {
+export interface IStepManager {
+  init: IInit;
+  hasNext: () => boolean;
+  hasPrev: () => boolean;
+  next: () => GameState;
+  prev: () => GameState;
+  getState: () => GameState;
+}
+
+export function applyFieldChange(orig: IField[], changes: IField[]): IField[] {
+  let fields = orig.slice();
+  changes.forEach(f => {
+    let i = fields.findIndex(o => f.x === o.x && f.y === o.y);
+    fields[i] = f;
+  });
+  return fields;
+}
+
+export class StepManager implements IStepManager {
+  public init: IInit;
+
   private game: IGameProtocol;
   private state: GameState;
   private undo: IField[][] = [];
 
   constructor(game: IGameProtocol) {
+    this.init = game.init;
     this.game = game;
     this.state = {
       standings: game.steps.length ? game.steps[0].standings : [],
       fields: game.init.fields,
-      currentStepIndex: 0
+      currentStepIndex: 0,
+      stepCount: game.steps.length
     };
   }
 
@@ -30,16 +53,10 @@ export class StepManager {
     );
   }
 
-  applyFieldChange(orig: IField[], changes: IField[]): IField[] {
-    let fields = orig.slice();
-    changes.forEach(f => {
-      let i = fields.findIndex(o => f.x === o.x && f.y === o.y);
-      fields[i] = f;
-    });
-    return fields;
-  }
-
   next(): GameState {
+    if (!this.hasNext()) {
+      return this.state;
+    }
     let step = this.game.steps[this.state.currentStepIndex];
 
     if (this.state.currentStepIndex >= this.undo.length) {
@@ -51,13 +68,14 @@ export class StepManager {
       this.undo.push(undo);
     }
 
-    let fields = this.applyFieldChange(this.state.fields, step.fields);
+    let fields = applyFieldChange(this.state.fields, step.fields);
     let standings = step.standings;
 
     this.state = {
       fields,
       standings,
-      currentStepIndex: this.state.currentStepIndex + 1
+      currentStepIndex: this.state.currentStepIndex + 1,
+      stepCount: this.game.steps.length
     };
     return this.state;
   }
@@ -65,12 +83,17 @@ export class StepManager {
   prev(): GameState {
     let currentStepIndex = this.state.currentStepIndex - 1;
     let { standings } = this.game.steps[currentStepIndex];
-    let fields = this.applyFieldChange(
+    let fields = applyFieldChange(
       this.state.fields,
       this.undo[currentStepIndex]
     );
 
-    this.state = { fields, standings, currentStepIndex };
+    this.state = {
+      fields,
+      standings,
+      currentStepIndex,
+      stepCount: this.game.steps.length
+    };
     return this.state;
   }
 

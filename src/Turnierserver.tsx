@@ -18,6 +18,7 @@ import { IGameProtocol } from "./protocol";
 import { GameVis } from "./GameVis";
 
 interface RankingEntry {
+  key: string;
   name: string;
   elo: number;
   games: number;
@@ -25,7 +26,7 @@ interface RankingEntry {
 
 interface State {
   page: "ranking" | "submitMap" | "submitBrain" | "visGame";
-  status: string;
+  status: { message: string; negative?: boolean; title?: string };
   visID?: string;
   visGame?: IGameProtocol;
   ranking?: RankingEntry[];
@@ -41,7 +42,7 @@ export class Turnierserver extends React.Component<{}, State> {
     super(props);
     this.state = {
       page: "ranking",
-      status: "connecting..."
+      status: { message: "connecting..." }
     };
     this.handleItemClick = this.handleItemClick.bind(this);
   }
@@ -53,17 +54,25 @@ export class Turnierserver extends React.Component<{}, State> {
   }
   componentDidMount() {
     const host =
-      location.hostname === "ente.ninja" ? "ente.ninja" : location.hostname + ":3044";
+      location.hostname === "ente.ninja"
+        ? "ente.ninja"
+        : location.hostname + ":3044";
     this.ws = connect(host);
     this.ws.on("connect", () =>
-      this.setState({ status: "connection established" })
+      this.setState({ status: { message: "connection established" } })
     );
     this.ws.on("disconnect", () =>
       this.setState({
-        status: "disconnected. will reconnect once server is back up"
+        status: {
+          negative: true,
+          title: "connection lost",
+          message: "will reconnect once server is back up"
+        }
       })
     );
-    this.ws.on("status", (data: string) => this.setState({ status: data }));
+    this.ws.on("status", (data: string) =>
+      this.setState({ status: JSON.parse(data) })
+    );
     this.ws.on("mapResult", (data: any) => {
       console.log("mapResult", data);
       const mapPreview = JSON.parse(data);
@@ -75,9 +84,9 @@ export class Turnierserver extends React.Component<{}, State> {
     });
 
     this.ws.on("gameData", (data: string) => {
-      (window as any).gameData = data
-      this.setState({ visGame: JSON.parse(data) })
-    })
+      (window as any).gameData = data;
+      this.setState({ visGame: JSON.parse(data) });
+    });
 
     this.ws.emit("fetchRanking");
   }
@@ -96,7 +105,7 @@ export class Turnierserver extends React.Component<{}, State> {
             active={activeItem === "ranking"}
             onClick={this.handleItemClick}
           >
-            Ranking
+            Global Ranking
           </Menu.Item>
 
           <Menu.Item
@@ -125,8 +134,11 @@ export class Turnierserver extends React.Component<{}, State> {
         </Menu>
 
         <Segment>
-          <Message info>
-            <p>{this.state.status}</p>
+          <Message info={!this.state.status.negative} negative={this.state.status.negative}>
+            {this.state.status.title ? (
+              <Message.Header>{this.state.status.title}</Message.Header>
+            ) : null}
+            <p>{this.state.status.message}</p>
           </Message>
           {activeItem === "ranking" ? (
             <>
@@ -136,15 +148,17 @@ export class Turnierserver extends React.Component<{}, State> {
               <Table celled fixed>
                 <Table.Header>
                   <Table.Row>
+                    <Table.HeaderCell>Key</Table.HeaderCell>
                     <Table.HeaderCell>Name</Table.HeaderCell>
                     <Table.HeaderCell>Elo</Table.HeaderCell>
-                    <Table.HeaderCell>Games</Table.HeaderCell>
+                    <Table.HeaderCell>Rated Games</Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
                   {this.state.ranking !== undefined
-                    ? this.state.ranking.map(({ name, elo, games }) => (
-                        <Table.Row key={name}>
+                    ? this.state.ranking.map(({ key, name, elo, games }) => (
+                        <Table.Row key={key}>
+                          <Table.Cell>{key}</Table.Cell>
                           <Table.Cell>{name}</Table.Cell>
                           <Table.Cell>{elo}</Table.Cell>
                           <Table.Cell>{games}</Table.Cell>
@@ -160,7 +174,8 @@ export class Turnierserver extends React.Component<{}, State> {
               <Form>
                 <Form.Field>
                   <label>Map Data</label>
-                  <TextArea style={{fontFamily: 'monospace'}}
+                  <TextArea
+                    style={{ fontFamily: "monospace" }}
                     placeholder={"2\n2\nA.\n.B"}
                     ref={e => (this.mapForm = e!)}
                   />
@@ -217,7 +232,8 @@ export class Turnierserver extends React.Component<{}, State> {
               <Form>
                 <Form.Field>
                   <label>Brain Data</label>
-                  <TextArea style={{fontFamily: 'monospace'}}
+                  <TextArea
+                    style={{ fontFamily: "monospace" }}
                     placeholder={'brain "noop" { jump 0\n}'}
                     ref={e => (this.brainForm = e!)}
                   />
@@ -244,7 +260,12 @@ export class Turnierserver extends React.Component<{}, State> {
               <Form>
                 <Form.Field>
                   <label>Game ID</label>
-                  <Input value={this.state.visID || ''} onChange={e => this.setState({ visID: (e.target as any).value })} />
+                  <Input
+                    value={this.state.visID || ""}
+                    onChange={e =>
+                      this.setState({ visID: (e.target as any).value })
+                    }
+                  />
                 </Form.Field>
                 <Button.Group fluid>
                   <Button
@@ -252,7 +273,10 @@ export class Turnierserver extends React.Component<{}, State> {
                     basic
                     color="green"
                     onClick={() => {
-                      this.ws.emit("loadGame", JSON.stringify({ key: this.state.visID }));
+                      this.ws.emit(
+                        "loadGame",
+                        JSON.stringify({ key: this.state.visID })
+                      );
                     }}
                   >
                     Query Database

@@ -1,7 +1,7 @@
 import * as React from "react";
 
 interface IProps {
-  onData: (result: any) => void;
+  onData: (filename: string, result: ArrayBuffer) => void;
 }
 
 export class FileDropZone extends React.Component<
@@ -69,14 +69,13 @@ export class FileDropZone extends React.Component<
 
     reader.onload = () => {
       try {
-        const p = JSON.parse(reader.result as string);
-        this.props.onData(p);
+        this.props.onData(file.name, reader.result as ArrayBuffer);
       } catch (e) {
         alert(e);
       }
     };
 
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
     this.setState({ visible: false });
     return false;
   }
@@ -84,7 +83,7 @@ export class FileDropZone extends React.Component<
   render() {
     return (
       <div>
-        DragnDrop json files into the window
+        {this.props.children}
         <div
           id="dragbox"
           style={

@@ -4,7 +4,8 @@ import { IGameProtocol, IField, IStanding } from "./protocol";
 
 import { GameGrid } from "./GameGrid";
 import { FieldColors } from "./FieldVis";
-import { StepManager } from "./StepManager";
+import { GzipGameStream } from "./GzipGameStream";
+import { StepManager, IStepManager } from "./StepManager";
 
 export interface DebuggingSelector {
   ant?: number;
@@ -15,30 +16,44 @@ interface State {
   standings: IStanding[];
   fields: IField[];
   currentStepIndex: number;
+  stepCount: number | string;
   stepTimer?: number;
+  timerMode?: string;
   debugging?: DebuggingSelector;
 }
 
 interface Props {
   size: number;
-  game: IGameProtocol;
+  game: IGameProtocol | GzipGameStream;
 }
 
 export class GameVis extends React.Component<Props, State> {
-  private stepManager: StepManager;
+  private stepManager: IStepManager;
 
   constructor(props: Props) {
     super(props);
+    this.stepManager = this.getStepManager(props.game);
     this.toggleAutoStep = this.toggleAutoStep.bind(this);
-    this.stepManager = new StepManager(props.game);
     this.state = this.stepManager.getState();
+  }
+
+  getStepManager(game: IGameProtocol | GzipGameStream): IStepManager {
+    if (game instanceof GzipGameStream) {
+      return game;
+    } else {
+      return new StepManager(game);
+    }
   }
 
   componentDidUpdate(prevProps: Props) {
     if (prevProps.game !== this.props.game) {
       // TODO: this is bad
       this.setState({ debugging: undefined }, () => {
-        this.stepManager = new StepManager(this.props.game);
+        if (this.props.game instanceof GzipGameStream) {
+          this.stepManager = this.props.game;
+        } else {
+          this.stepManager = new StepManager(this.props.game);
+        }
         this.setState(this.stepManager.getState());
       });
     }
@@ -52,23 +67,29 @@ export class GameVis extends React.Component<Props, State> {
   }
 
   toggleAutoStep() {
+    let [modeC, modeT] = (this.state.timerMode || '1,100').split(',')
+    let count = parseInt(modeC, 10)
+    let interval = parseInt(modeT, 10)
     if (this.state.stepTimer) {
       this.clearAutoStep();
     } else {
       const timer = setInterval(() => {
-        let next = this.state.currentStepIndex;
-        if (next >= this.props.game.steps.length) {
+        if (!this.stepManager.hasNext()) {
           this.toggleAutoStep();
         } else {
-          this.setState(this.stepManager.next());
+          let state = this.state
+          for (let i = 0; i < count; i++) {
+            state = this.stepManager.next()
+          }
+          this.setState(state);
         }
-      }, 100);
+      }, interval);
       this.setState({ stepTimer: (timer as any) as number });
     }
   }
 
   render() {
-    const { width, height } = this.props.game.init;
+    const { width, height } = this.stepManager.init;
     return (
       <div style={{ width: "100%", height: "100%" }}>
         {this.state.standings.length ? (
@@ -92,11 +113,11 @@ export class GameVis extends React.Component<Props, State> {
           </table>
         ) : null}
         <div>
-          Step: {this.state.currentStepIndex} / {this.props.game.steps.length}
+          Step: {this.state.currentStepIndex} / {this.state.stepCount}
         </div>
         <button
           onClick={() => {
-            this.stepManager = new StepManager(this.props.game);
+            this.stepManager = this.getStepManager(this.props.game);
             this.setState(this.stepManager.getState());
           }}
         >
@@ -114,6 +135,18 @@ export class GameVis extends React.Component<Props, State> {
         <button onClick={this.toggleAutoStep}>
           {this.state.stepTimer ? "Stop" : "Play"}
         </button>
+        <select
+          name="cars"
+          onChange={e => {
+            this.setState({ timerMode: e.target.value });
+          }}
+        >
+          <option value="1,100">1, 100ms</option>
+          <option value="10,100">10, 100ms</option>
+          <option value="1000,1000">1k, 1s</option>
+          <option value="10000,1000">10k, 1s</option>
+          <option value="100000,1000">100k, 1s</option>
+        </select>
         <button
           disabled={!this.stepManager.hasNext()}
           onClick={() => {
@@ -123,6 +156,7 @@ export class GameVis extends React.Component<Props, State> {
         >
           Next Step
         </button>
+
         <br />
         <GameGrid
           size={this.props.size}
