@@ -22,7 +22,7 @@ redis.set(
     .toString()
 );
 redis.set("brains:liechtenstein:name", "liechtenstein");
-redis.zadd("ranking", 1200, "brains:liechtenstein");
+redis.zadd("ranking", "NX", 1200, "brains:liechtenstein");
 
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -39,31 +39,25 @@ function hash(data) {
     .slice(0, 16);
 }
 
-function eloifyGame(key) {
-  return redis
-    .pipeline()
-    .lrange(key + ":brains", 0, -1)
-    .hgetall(key + ":result:points")
-    .exec((err, [[_e1, brains], [_e2, points]]) => {
-      if (brains.length === 2) {
-        let [brainA, brainB] = brains;
-        redis.incr(brainA + ":games");
-        redis.incr(brainB + ":games");
-        console.log(brains, points);
-        redis.zscore("ranking", brainA).then(eloA => {
-          redis.zscore("ranking", brainB).then(eloB => {
-            let res = processEloGame(
-              { elo: JSON.parse(eloA), points: JSON.parse(points.A) },
-              { elo: JSON.parse(eloB), points: JSON.parse(points.B) }
-            );
-            redis.zadd("ranking", res.A, brainA);
-            redis.zadd("ranking", res.B, brainB);
-          });
-        });
-      } else {
-        console.log("expected 2 brains");
-      }
-    });
+async function eloifyGame(key) {
+  let brains = await redis.lrange(key + ":brains", 0, -1);
+  let points = await redis.hgetall(key + ":result:points");
+  if (brains.length === 2) {
+    let [brainA, brainB] = brains;
+    await redis.incr(brainA + ":games");
+    await redis.incr(brainB + ":games");
+    console.log(brains, points);
+    let eloA = await redis.zscore("ranking", brainA);
+    let eloB = await redis.zscore("ranking", brainB);
+    let res = processEloGame(
+      { elo: JSON.parse(eloA), points: JSON.parse(points.A) },
+      { elo: JSON.parse(eloB), points: JSON.parse(points.B) }
+    );
+    await redis.zadd("ranking", res.A, brainA);
+    await redis.zadd("ranking", res.B, brainB);
+  } else {
+    console.log("expected 2 brains");
+  }
 }
 
 var RESULT_CALLBACKS = {
@@ -83,7 +77,7 @@ function clearStatus(key, chan) {
 
 var subConnection = new Redis();
 subConnection.subscribe("mapResults", "gameResults", "processing");
-subConnection.on("message", (chan, message) => {
+subConnection.on("message", async (chan, message) => {
   console.log("[PS]", chan, message);
   if (RESULT_CALLBACKS[chan][message]) {
     RESULT_CALLBACKS[chan][message]();
@@ -91,16 +85,14 @@ subConnection.on("message", (chan, message) => {
   } else {
     if (chan === "gameResults") {
       let key = message;
-      eloifyGame(key).then(() => {
-        redis.get(key + ":scoreOnly").then(scoreOnly => {
-          if (scoreOnly) unlinkKeys(key);
-        });
-      });
+      await eloifyGame(key);
+      let scoreOnly = await redis.get(key + ":scoreOnly");
+      if (scoreOnly) unlinkKeys(key);
     }
   }
 });
 
-function makeGame(data) {
+async function makeGame(data) {
   var pipeline = redis.pipeline();
   let key = "games:" + hash(JSON.stringify(data));
   for (let e of Object.keys(data)) {
@@ -111,9 +103,7 @@ function makeGame(data) {
   for (let brain of data["brains"]) {
     pipeline.rpush(key + ":brains", brain);
   }
-  pipeline.exec((err, result) => {
-    if (err) console.log(err);
-  });
+  await pipeline.exec();
   return key;
 }
 
@@ -163,35 +153,34 @@ io.on("connection", function(client) {
     emitStatus(`queued ${key}`);
 
     onStatus(key, "processing", () => client.emit("started processing " + key));
-    onStatus(key, "mapResults", () => {
+    onStatus(key, "mapResults", async () => {
       clearStatus(key, "processing");
-      redis.get(key + ":init").then(init => {
-        if (preview) {
-          unlinkKeys(key);
-          emitStatus("Got map preview");
-        } else {
-          redis.zadd("mappool", 1, key);
-          emitStatus("Submitted to the map-pool");
-        }
-        client.emit(
-          "mapResult",
-          JSON.stringify({
-            init: JSON.parse(init),
-            steps: []
-          })
-        );
-      });
+      let init = await redis.get(key + ":init");
+      if (preview) {
+        unlinkKeys(key);
+        emitStatus("Got map preview");
+      } else {
+        redis.zadd("mappool", 1, key);
+        emitStatus("Submitted to the map-pool");
+      }
+      client.emit(
+        "mapResult",
+        JSON.stringify({
+          init: JSON.parse(init),
+          steps: []
+        })
+      );
     });
   });
 
-  client.on("brainRequest", data => {
+  client.on("brainRequest", async data => {
     console.log("brainRequest", data);
     let key = "brains:" + hash(data);
     redis.set(key, data);
     let name = (data.match(/brain.*?"(.*?)"/) || [0, undefined])[1];
     redis.set(key + ":name", name);
     redis.set(key + ":games", 0);
-    let qualification = makeGame({
+    let qualification = await makeGame({
       brains: [key, "brains:noop"],
       map: "maps:qualification",
       rounds: 10000,
@@ -204,81 +193,79 @@ io.on("connection", function(client) {
     onStatus(qualification, "processing", () =>
       emitStatus("started qualification match for " + name)
     );
-    onStatus(qualification, "gameResults", () => {
+    onStatus(qualification, "gameResults", async () => {
       clearStatus(qualification, "processing");
-      redis.get(qualification + ":error").then(error => {
-        if (error) {
-          emitStatus({
-            message: error,
-            negative: true,
-            title: "Internal error"
-          });
-          client.emit("brainResult", "game errored");
-          return;
-        }
-
-        redis.hget(qualification + ":result:points", "A").then(ptsA => {
-          ptsA = (ptsA && JSON.parse(ptsA)) || 0;
-          if (ptsA > 0) {
-            redis.zadd("ranking", 1200, key);
-            emitStatus({
-              title: "Qualified",
-              message: `'${name}' reached ${ptsA} points`
-            });
-            refreshBrains();
-          } else {
-            emitStatus({
-              negative: true,
-              title: "Not qualified",
-              message: `'${name}' reached ${ptsA} points`
-            });
-            // TODO: TTL on creation
-            ttlKeys(qualification, 600);
-            unlinkKeys(key);
-          }
+      let error = await redis.get(qualification + ":error");
+      if (error) {
+        emitStatus({
+          message: error,
+          negative: true,
+          title: "Internal error"
         });
-      });
+        return;
+      }
+
+      let ptsA = await redis.hget(qualification + ":result:points", "A");
+      ptsA = (ptsA && JSON.parse(ptsA)) || 0;
+      if (ptsA > 0) {
+        await redis.zadd("ranking", 1200, key);
+        emitStatus({
+          title: "Qualified",
+          message: `'${name}' reached ${ptsA} points`
+        });
+        refreshBrains();
+      } else {
+        emitStatus({
+          negative: true,
+          title: "Not qualified",
+          message: `'${name}' reached ${ptsA} points`
+        });
+        // TODO: TTL on creation
+        ttlKeys(qualification, 600);
+        unlinkKeys(key);
+      }
     });
   });
 
-  client.on("fetchRanking", data => {
-    redis
-      .zrevrangebyscore("ranking", "inf", "-inf", "WITHSCORES", "LIMIT", 0, 10)
-      .then(data => {
-        let ranking = [];
-        let pipeline = redis.pipeline();
-        while (data.length) {
-          let key = data.shift();
-          let elo = data.shift();
-          pipeline.get(key + ":name");
-          pipeline.get(key + ":games");
-          ranking.push({ key, elo });
-        }
-        pipeline.exec((err, data) => {
-          for (let i = 0; i < ranking.length; i++) {
-            ranking[i].name = data.shift()[1];
-            ranking[i].games = data.shift()[1];
-          }
-          client.emit("ranking", JSON.stringify(ranking));
-        });
-      });
+  client.on("fetchRanking", async _ => {
+    let scoreData = await redis.zrevrangebyscore(
+      "ranking",
+      "inf",
+      "-inf",
+      "WITHSCORES",
+      "LIMIT",
+      0,
+      10
+    );
+    let ranking = [];
+    let pipeline = redis.pipeline();
+    while (scoreData.length) {
+      let key = scoreData.shift();
+      let elo = scoreData.shift();
+      pipeline.get(key + ":name");
+      pipeline.get(key + ":games");
+      ranking.push({ key, elo });
+    }
+    let otherData = await pipeline.exec();
+    for (let i = 0; i < ranking.length; i++) {
+      ranking[i].name = otherData.shift()[1];
+      ranking[i].games = otherData.shift()[1];
+    }
+    client.emit("ranking", JSON.stringify(ranking));
   });
 
-  client.on("loadGame", s => {
+  client.on("loadGame", async s => {
     const data = JSON.parse(s); // TODO: ranges
     const key = data.key;
     console.log("[G]", key);
 
-    redis.llen(key + ":steps").then(count => {
-      console.log("[G]", "sending", count, "steps");
-      redis.get(key + ":init").then(init => {
-        init = JSON.parse(init);
-        redis.lrange(key + ":steps", 0, -1).then(steps => {
-          steps = steps.map(v => JSON.parse(v));
-          client.emit("gameData", JSON.stringify({ init, steps }));
-        });
-      });
-    });
+    let count = await redis.llen(key + ":steps");
+    console.log("[G]", "sending", count, "steps");
+    let init = await redis.get(key + ":init");
+    init = JSON.parse(init);
+    let steps = await redis.lrange(key + ":steps", 0, -1);
+    steps = steps.map(v => JSON.parse(v));
+    client.emit("gameData", JSON.stringify({ init, steps }));
   });
 
   client.on("disconnect", function() {
@@ -288,41 +275,45 @@ io.on("connection", function(client) {
 
 let brains = [];
 
-setInterval(() => {
-  redis.llen("gameQueue").then(count => {
-    if (count) {
-      console.log("[in queue]", count, "games");
-      redis.publish("ping", "work");
-      for (let i = 100; i < 10000; i += 420)
-        setTimeout(() => redis.publish("ping", "work"), i);
-    } else {
-      if (brains.length < 2) {
-        console.log("[W]", "neeed moorrreee braaaaaaainns");
-        return;
-      }
-      console.log("queueing random games");
-      for (let i = 0; i < 100; i++) {
-        let map = "maps:qualification";
-        let game_brains = brains.slice();
-        shuffleArray(game_brains);
-        game_brains = game_brains.slice(0, 2);
-        let gameID = makeGame({
-          rounds: 10000,
-          scoreOnly: true,
-          seed: Math.round(Math.random() * 1337 * 420),
-          brains: game_brains,
-          map
-        });
-        redis.rpush("gameQueue", gameID);
-      }
+setInterval(async () => {
+  let count = await redis.llen("gameQueue");
+  if (count) {
+    console.log("[in queue]", count, "games");
+    redis.publish("ping", "work");
+    for (let i = 100; i < 10000; i += 420)
+      setTimeout(() => redis.publish("ping", "work"), i);
+  } else {
+    if (brains.length < 2) {
+      console.log("[W]", "neeed moorrreee braaaaaaainns");
+      return;
     }
-  });
+    console.log("queueing random games");
+    for (let i = 0; i < 100; i++) {
+      let map = "maps:qualification";
+      let game_brains = brains.slice();
+      shuffleArray(game_brains);
+      game_brains = game_brains.slice(0, 2);
+      let gameID = await makeGame({
+        rounds: 10000,
+        scoreOnly: true,
+        seed: Math.round(Math.random() * 1337 * 420),
+        brains: game_brains,
+        map
+      });
+      await redis.rpush("gameQueue", gameID);
+    }
+  }
 }, 10000);
 
-function refreshBrains() {
-  redis
-    .zrevrangebyscore("ranking", "inf", "-inf", "LIMIT", 0, 10)
-    .then(_brains => (brains = _brains));
+async function refreshBrains() {
+  brains = await redis.zrevrangebyscore(
+    "ranking",
+    "inf",
+    "-inf",
+    "LIMIT",
+    0,
+    10
+  );
 }
 refreshBrains();
 setInterval(refreshBrains, 1000 * 60 * 10);
