@@ -16,6 +16,7 @@ import { connect } from "socket.io-client";
 import { IGameProtocol } from "./protocol";
 
 import { GameVis } from "./GameVis";
+import { GameGrid } from "./GameGrid";
 
 interface RankingEntry {
   key: string;
@@ -134,7 +135,10 @@ export class Turnierserver extends React.Component<{}, State> {
         </Menu>
 
         <Segment>
-          <Message info={!this.state.status.negative} negative={this.state.status.negative}>
+          <Message
+            info={!this.state.status.negative}
+            negative={this.state.status.negative}
+          >
             {this.state.status.title ? (
               <Message.Header>{this.state.status.title}</Message.Header>
             ) : null}
@@ -219,7 +223,7 @@ export class Turnierserver extends React.Component<{}, State> {
               </Form>
               {this.state.mapPreview ? (
                 this.state.mapPreview.init !== null ? (
-                  <GameVis size={60} game={this.state.mapPreview} />
+                  <GameGrid size={60} {...this.state.mapPreview.init} />
                 ) : (
                   "errored while parsing the map"
                 )

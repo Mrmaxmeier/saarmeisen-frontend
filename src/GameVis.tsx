@@ -1,5 +1,7 @@
 import * as React from "react";
 
+import { Container } from "semantic-ui-react";
+
 import { IGameProtocol, IField, IStanding } from "./protocol";
 
 import { GameGrid } from "./GameGrid";
@@ -67,9 +69,9 @@ export class GameVis extends React.Component<Props, State> {
   }
 
   toggleAutoStep() {
-    let [modeC, modeT] = (this.state.timerMode || '1,100').split(',')
-    let count = parseInt(modeC, 10)
-    let interval = parseInt(modeT, 10)
+    let [modeC, modeT] = (this.state.timerMode || "1,100").split(",");
+    let count = parseInt(modeC, 10);
+    let interval = parseInt(modeT, 10);
     if (this.state.stepTimer) {
       this.clearAutoStep();
     } else {
@@ -77,9 +79,9 @@ export class GameVis extends React.Component<Props, State> {
         if (!this.stepManager.hasNext()) {
           this.toggleAutoStep();
         } else {
-          let state = this.state
+          let state = this.state;
           for (let i = 0; i < count; i++) {
-            state = this.stepManager.next()
+            state = this.stepManager.next();
           }
           this.setState(state);
         }
@@ -91,83 +93,84 @@ export class GameVis extends React.Component<Props, State> {
   render() {
     const { width, height } = this.stepManager.init;
     return (
-      <div style={{ width: "100%", height: "100%" }}>
-        {this.state.standings.length ? (
-          <table style={{ textAlign: "center" }}>
-            <tbody>
-              <tr>
-                <th>Swarm</th>
-                <th>Color</th>
-                <th>Score</th>
-                <th>Ants</th>
-              </tr>
-              {this.state.standings.map(({ score, swarm_id, ants }, i) => (
-                <tr key={i}>
-                  <td>{swarm_id}</td>
-                  <td style={{ backgroundColor: FieldColors[swarm_id] }} />
-                  <td>{score}</td>
-                  <td>{ants}</td>
+      <div>
+        <Container text>
+          {this.state.standings.length ? (
+            <table style={{ textAlign: "center" }}>
+              <tbody>
+                <tr>
+                  <th>Swarm</th>
+                  <th>Color</th>
+                  <th>Score</th>
+                  <th>Ants</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-        <div>
-          Step: {this.state.currentStepIndex} / {this.state.stepCount}
+                {this.state.standings.map(({ score, swarm_id, ants }, i) => (
+                  <tr key={i}>
+                    <td>{swarm_id}</td>
+                    <td style={{ backgroundColor: FieldColors[swarm_id] }} />
+                    <td>{score}</td>
+                    <td>{ants}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+          <div>
+            Step: {this.state.currentStepIndex} / {this.state.stepCount}
+          </div>
+          <button
+            onClick={() => {
+              this.stepManager = this.getStepManager(this.props.game);
+              this.stepManager.reset();
+              this.setState(this.stepManager.getState());
+            }}
+          >
+            Reset Game
+          </button>
+          <button
+            disabled={!this.stepManager.hasPrev()}
+            onClick={() => {
+              this.clearAutoStep();
+              this.setState(this.stepManager.prev());
+            }}
+          >
+            Prev Step
+          </button>
+          <button onClick={this.toggleAutoStep}>
+            {this.state.stepTimer ? "Stop" : "Play"}
+          </button>
+          <select
+            name="cars"
+            onChange={e => {
+              this.setState({ timerMode: e.target.value });
+            }}
+          >
+            <option value="1,100">1, 100ms</option>
+            <option value="10,100">10, 100ms</option>
+            <option value="1000,1000">1k, 1s</option>
+            <option value="10000,1000">10k, 1s</option>
+            <option value="100000,1000">100k, 1s</option>
+          </select>
+          <button
+            disabled={!this.stepManager.hasNext()}
+            onClick={() => {
+              this.clearAutoStep();
+              this.setState(this.stepManager.next());
+            }}
+          >
+            Next Step
+          </button>
+        </Container>
+        <div style={{ display: "flex", alignItems: 'center', justifyContent: 'center' }}>
+          <GameGrid
+            size={this.props.size}
+            fields={this.state.fields}
+            width={width}
+            height={height}
+            debuggingSelector={debugging => this.setState({ debugging })}
+          />
         </div>
-        <button
-          onClick={() => {
-            this.stepManager = this.getStepManager(this.props.game);
-            this.stepManager.reset()
-            this.setState(this.stepManager.getState());
-          }}
-        >
-          Reset Game
-        </button>
-        <button
-          disabled={!this.stepManager.hasPrev()}
-          onClick={() => {
-            this.clearAutoStep();
-            this.setState(this.stepManager.prev());
-          }}
-        >
-          Prev Step
-        </button>
-        <button onClick={this.toggleAutoStep}>
-          {this.state.stepTimer ? "Stop" : "Play"}
-        </button>
-        <select
-          name="cars"
-          onChange={e => {
-            this.setState({ timerMode: e.target.value });
-          }}
-        >
-          <option value="1,100">1, 100ms</option>
-          <option value="10,100">10, 100ms</option>
-          <option value="1000,1000">1k, 1s</option>
-          <option value="10000,1000">10k, 1s</option>
-          <option value="100000,1000">100k, 1s</option>
-        </select>
-        <button
-          disabled={!this.stepManager.hasNext()}
-          onClick={() => {
-            this.clearAutoStep();
-            this.setState(this.stepManager.next());
-          }}
-        >
-          Next Step
-        </button>
-
-        <br />
-        <GameGrid
-          size={this.props.size}
-          fields={this.state.fields}
-          width={width}
-          height={height}
-          debuggingSelector={debugging => this.setState({ debugging })}
-        />
-        <br />
-        <div>
+        <Container text>
           {this.state.debugging ? (
             <span>
               Showing information for: {JSON.stringify(this.state.debugging)}
@@ -182,7 +185,7 @@ export class GameVis extends React.Component<Props, State> {
           ) : (
             <span>Click (field|ant) to show debugging info</span>
           )}
-        </div>
+        </Container>
       </div>
     );
   }

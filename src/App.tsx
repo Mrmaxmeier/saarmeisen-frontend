@@ -15,7 +15,7 @@ import "./App.css";
 import { FileDropZone } from "./FileDropZone";
 import { GameVis } from "./GameVis";
 import { Turnierserver } from "./Turnierserver";
-import { GzipGameStream } from './GzipGameStream'
+import { GzipGameStream } from "./GzipGameStream";
 import { game as sampleGame, IGameProtocol } from "./protocol";
 
 interface IState {
@@ -55,11 +55,11 @@ class App extends React.Component<{}, IState> {
       const game = JSON.parse(text) as IGameProtocol;
       this.setState({ game });
     } else if (filename.endsWith(".json.gz")) {
-      console.log('stream memes', logfile);
+      console.log("stream memes", logfile);
       let buf = new Uint8Array(logfile);
-      this.setState({ game: new GzipGameStream(buf) })
+      this.setState({ game: new GzipGameStream(buf) });
     } else {
-      console.error('can\'t handle', filename)
+      console.error("can't handle", filename);
     }
   }
 
@@ -112,51 +112,52 @@ class App extends React.Component<{}, IState> {
         </Menu>
 
         {this.state.page === "vis" ? (
-          <Container text style={{ marginTop: "7em" }}>
-            <table>
-              <tbody>
-                <tr>
-                  <th>Issue Tracker</th>
-                  <td>
-                    <a href="https://github.com/Mrmaxmeier/saarmeisen-frontend">
-                      github.com/Mrmaxmeier/saarmeisen-frontend
-                    </a>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Protocol</th>
-                  <td>
-                    <FileDropZone onData={this.onGameProtocol}>
-                      DragnDrop {"{.json,.json.gz}"} files into the window
-                    </FileDropZone>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Note</th>
-                  <td>
-                    Only reasonable .json.gz files are supported. <br />
-                    They're streamed to combat back-pressure, so you won't be
-                    able to undo moves.
-                  </td>
-                </tr>
-                <tr>
-                  <th>HexSize</th>
-                  <td>
-                    <input
-                      type="number"
-                      value={this.state.size}
-                      onChange={e =>
-                        this.setState({ size: parseInt(e.target.value, 10) })
-                      }
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <div>
-              <GameVis {...this.state} />
-            </div>
-          </Container>
+          <>
+            <Container text style={{ marginTop: "7em" }}>
+              <table>
+                <tbody>
+                  <tr>
+                    <th>Issue Tracker</th>
+                    <td>
+                      <a href="https://github.com/Mrmaxmeier/saarmeisen-frontend">
+                        github.com/Mrmaxmeier/saarmeisen-frontend
+                      </a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Protocol</th>
+                    <td>
+                      <FileDropZone onData={this.onGameProtocol}>
+                        DragnDrop {"{.json,.json.gz}"} files into the window
+                      </FileDropZone>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Note</th>
+                    <td>
+                      Only reasonable .json.gz files are supported. <br />
+                      They're streamed to combat back-pressure, so you won't be
+                      able to undo moves.
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>HexSize</th>
+                    <td>
+                      <input
+                      min={25}
+                        type="number"
+                        value={this.state.size}
+                        onChange={e =>
+                          this.setState({ size: parseInt(e.target.value, 10) })
+                        }
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Container>
+            <GameVis {...this.state} />
+          </>
         ) : null}
 
         {this.state.page === "turnierserver" ? <Turnierserver /> : null}
