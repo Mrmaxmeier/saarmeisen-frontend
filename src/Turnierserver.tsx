@@ -55,8 +55,8 @@ export class Turnierserver extends React.Component<{}, State> {
   }
   componentDidMount() {
     const host =
-      location.hostname === "ente.ninja"
-        ? "ente.ninja"
+      location.hostname === "saarmeisen.ente.ninja"
+        ? "saarmeisen.ente.ninja"
         : location.hostname + ":3044";
     this.ws = connect(host);
     this.ws.on("connect", () =>
