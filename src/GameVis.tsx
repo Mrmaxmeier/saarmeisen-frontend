@@ -15,6 +15,7 @@ export interface DebuggingSelector {
 }
 
 interface State {
+  size: number;
   standings: IStanding[];
   fields: IField[];
   currentStepIndex: number;
@@ -25,7 +26,6 @@ interface State {
 }
 
 interface Props {
-  size: number;
   game: IGameProtocol | GzipGameStream;
 }
 
@@ -81,7 +81,7 @@ export class GameVis extends React.Component<Props, State> {
         } else {
           let state = this.state;
           for (let i = 0; i < count; i++) {
-            state = this.stepManager.next();
+            state = { ...this.stepManager.next(), size: state.size };
           }
           this.setState(state);
         }
@@ -95,6 +95,20 @@ export class GameVis extends React.Component<Props, State> {
     return (
       <div>
         <Container text>
+          <tr>
+            <th>HexSize</th>
+            <td>
+              <input
+                min={25}
+                type="number"
+                value={this.state.size}
+                onChange={e =>
+                  this.setState({ size: parseInt(e.target.value, 10) })
+                }
+              />
+            </td>
+          </tr>
+
           {this.state.standings.length ? (
             <table style={{ textAlign: "center" }}>
               <tbody>
@@ -161,9 +175,15 @@ export class GameVis extends React.Component<Props, State> {
             Next Step
           </button>
         </Container>
-        <div style={{ display: "flex", alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
           <GameGrid
-            size={this.props.size}
+            size={this.state.size}
             fields={this.state.fields}
             width={width}
             height={height}

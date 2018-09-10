@@ -29,6 +29,7 @@ interface RankingEntry {
 interface MapPoolEntry {
   key: string;
   weight: number;
+  rounds: number;
   games: number;
 }
 
@@ -252,15 +253,17 @@ export class Turnierserver extends React.Component<{}, State> {
                   <Table.Row>
                     <Table.HeaderCell>Key</Table.HeaderCell>
                     <Table.HeaderCell>Weight</Table.HeaderCell>
+                    <Table.HeaderCell>Rounds</Table.HeaderCell>
                     <Table.HeaderCell>Rated Games</Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
                   {this.state.maps !== undefined
-                    ? this.state.maps.map(({ key, weight, games }) => (
+                    ? this.state.maps.map(({ key, weight, rounds, games }) => (
                         <Table.Row key={key}>
                           <Table.Cell>{key}</Table.Cell>
                           <Table.Cell>{weight}</Table.Cell>
+                          <Table.Cell>{rounds}</Table.Cell>
                           <Table.Cell>{games}</Table.Cell>
                         </Table.Row>
                       ))
@@ -378,7 +381,7 @@ export class Turnierserver extends React.Component<{}, State> {
                 </Button.Group>
               </Form>
               {this.state.visGame ? (
-                <GameVis size={60} game={this.state.visGame} />
+                <GameVis game={this.state.visGame} />
               ) : null}
             </>
           ) : null}

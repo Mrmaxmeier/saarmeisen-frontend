@@ -313,7 +313,8 @@ io.on("connection", function(client) {
     while (maps_.length) {
       let key = maps_.shift();
       let weight = maps_.shift();
-      maps.push({ key, weight });
+      let rounds = await redis.get(key + ":rounds")
+      maps.push({ key, weight, rounds });
     }
     client.emit("mapList", JSON.stringify(maps));
   });
@@ -327,7 +328,6 @@ let brains = [];
 let mapPool = {};
 
 setInterval(async () => {
-  return;
   let count = await redis.llen("gameQueue");
   if (count) {
     console.log("[in queue]", count, "games");

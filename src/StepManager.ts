@@ -5,6 +5,7 @@ export interface GameState {
   fields: IField[];
   currentStepIndex: number;
   stepCount: number | string;
+  size: number;
 }
 
 export interface IStepManager {
@@ -26,6 +27,12 @@ export function applyFieldChange(orig: IField[], changes: IField[]): IField[] {
   return fields;
 }
 
+export function getInitialSize(init: IInit) {
+  return Math.round(
+    Math.max(20, Math.min(100, 400 / Math.max(init.width, init.height)))
+  );
+}
+
 export class StepManager implements IStepManager {
   public init: IInit;
 
@@ -40,7 +47,8 @@ export class StepManager implements IStepManager {
       standings: game.steps.length ? game.steps[0].standings : [],
       fields: game.init.fields,
       currentStepIndex: 0,
-      stepCount: game.steps.length
+      stepCount: game.steps.length,
+      size: getInitialSize(this.init)
     };
   }
 
@@ -80,7 +88,8 @@ export class StepManager implements IStepManager {
       fields,
       standings,
       currentStepIndex: this.state.currentStepIndex + 1,
-      stepCount: this.game.steps.length
+      stepCount: this.game.steps.length,
+      size: -1
     };
     return this.state;
   }
@@ -97,7 +106,8 @@ export class StepManager implements IStepManager {
       fields,
       standings,
       currentStepIndex,
-      stepCount: this.game.steps.length
+      stepCount: this.game.steps.length,
+      size: -1
     };
     return this.state;
   }

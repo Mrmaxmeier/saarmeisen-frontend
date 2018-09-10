@@ -1,6 +1,11 @@
 import { Inflate, Data } from "pako";
 import { IInit, IStep } from "./protocol";
-import { IStepManager, GameState, applyFieldChange } from "./StepManager";
+import {
+  IStepManager,
+  GameState,
+  applyFieldChange,
+  getInitialSize
+} from "./StepManager";
 
 export class GzipGameStream implements IStepManager {
   public init: IInit;
@@ -24,7 +29,8 @@ export class GzipGameStream implements IStepManager {
       currentStepIndex: 0,
       fields: this.init.fields,
       standings: this.buffer!.standings,
-      stepCount: "???"
+      stepCount: "???",
+      size: getInitialSize(this.init)
     };
   }
 

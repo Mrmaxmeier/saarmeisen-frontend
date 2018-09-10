@@ -19,7 +19,6 @@ import { GzipGameStream } from "./GzipGameStream";
 import { game as sampleGame, IGameProtocol } from "./protocol";
 
 interface IState {
-  size: number;
   game: IGameProtocol | GzipGameStream;
   page: "vis" | "consent" | "turnierserver";
 }
@@ -29,7 +28,6 @@ class App extends React.Component<{}, IState> {
     super(props);
 
     this.state = {
-      size: 80,
       game: sampleGame,
       page: "vis"
     };
@@ -138,19 +136,6 @@ class App extends React.Component<{}, IState> {
                       Only reasonable .json.gz files are supported. <br />
                       They're streamed to combat back-pressure, so you won't be
                       able to undo moves.
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>HexSize</th>
-                    <td>
-                      <input
-                      min={25}
-                        type="number"
-                        value={this.state.size}
-                        onChange={e =>
-                          this.setState({ size: parseInt(e.target.value, 10) })
-                        }
-                      />
                     </td>
                   </tr>
                 </tbody>
