@@ -43,6 +43,7 @@ export class GzipGameStream implements IStepManager {
       ...this.state,
       currentStepIndex: this.state.currentStepIndex + 1,
       fields: applyFieldChange(this.state.fields, this.buffer.fields),
+      standings: this.buffer.standings,
       stepCount: estimateCount(
         this.stream.i / this.stream.binData.length,
         this.state.currentStepIndex
@@ -136,7 +137,9 @@ export class JsonGZIPStream {
 
   markJSONChunk(): boolean {
     while (!this.chunks.length) {
-      this.inflateChunk();
+      if (!this.inflateChunk()) {
+        throw new Error("trying to read past end of gzip");
+      }
     }
     let chunk = this.chunks[0];
     for (let i = 0; i < chunk.length; i++) {
@@ -177,7 +180,6 @@ export class JsonGZIPStream {
 
   inflateChunk(): boolean {
     if (this.i >= this.binData.length) {
-      throw new Error("TODO: does this break things");
       return false;
     }
     if (this.i + GZ_CHUNK_SIZE >= this.binData.length) {

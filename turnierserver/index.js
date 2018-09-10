@@ -12,6 +12,7 @@ redis.set(
   "maps:qualification",
   "4\n4\n" + "####\n" + "A..B\n" + "A11B\n" + ".99."
 );
+redis.set("maps:qualification:rounds", 10000);
 redis.set("brains:noop", 'brain "Noop" {\njump 0\n}');
 redis.set("brains:noop:name", "Noop");
 
@@ -23,6 +24,7 @@ redis.set(
 );
 redis.set("brains:liechtenstein:name", "liechtenstein");
 redis.zadd("ranking", "NX", 1200, "brains:liechtenstein");
+redis.zadd("mappool", "NX", 1, "maps:qualification");
 
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -39,13 +41,24 @@ function hash(data) {
     .slice(0, 16);
 }
 
+function weightedRand(spec) {
+  let sum = 0;
+  let r = Math.random();
+  for (let key of Object.keys(spec)) {
+    sum += spec[key];
+    if (r <= sum) return key;
+  }
+}
+
 async function eloifyGame(key) {
   let brains = await redis.lrange(key + ":brains", 0, -1);
   let points = await redis.hgetall(key + ":result:points");
+  let map = await redis.get(key + ":map");
   if (brains.length === 2) {
     let [brainA, brainB] = brains;
     await redis.incr(brainA + ":games");
     await redis.incr(brainB + ":games");
+    await redis.incr(map + ":games");
     console.log(brains, points);
     let eloA = await redis.zscore("ranking", brainA);
     let eloB = await redis.zscore("ranking", brainB);
@@ -93,6 +106,9 @@ subConnection.on("message", async (chan, message) => {
 });
 
 async function makeGame(data) {
+  if (!data.rounds) {
+    data.rounds = await redis.get(data.map + ":rounds");
+  }
   var pipeline = redis.pipeline();
   let key = "games:" + hash(JSON.stringify(data));
   for (let e of Object.keys(data)) {
@@ -155,21 +171,17 @@ io.on("connection", function(client) {
     onStatus(key, "processing", () => client.emit("started processing " + key));
     onStatus(key, "mapResults", async () => {
       clearStatus(key, "processing");
-      let init = await redis.get(key + ":init");
       if (preview) {
         unlinkKeys(key);
         emitStatus("Got map preview");
       } else {
         redis.zadd("mappool", 1, key);
         emitStatus("Submitted to the map-pool");
+        refreshMaps();
       }
-      client.emit(
-        "mapResult",
-        JSON.stringify({
-          init: JSON.parse(init),
-          steps: []
-        })
-      );
+      let buf = await redis.getBuffer(key + ":log_gz");
+      if (buf !== null) client.emit("mapResult", buf);
+      else emitStatus("Failed to parse map");
     });
   });
 
@@ -183,7 +195,6 @@ io.on("connection", function(client) {
     let qualification = await makeGame({
       brains: [key, "brains:noop"],
       map: "maps:qualification",
-      rounds: 10000,
       seed: 123
     });
     console.log("[QUAL]", qualification);
@@ -254,18 +265,56 @@ io.on("connection", function(client) {
     client.emit("ranking", JSON.stringify(ranking));
   });
 
-  client.on("loadGame", async s => {
-    const data = JSON.parse(s); // TODO: ranges
-    const key = data.key;
+  client.on("loadGame", async key => {
     console.log("[G]", key);
 
-    let count = await redis.llen(key + ":steps");
-    console.log("[G]", "sending", count, "steps");
-    let init = await redis.get(key + ":init");
-    init = JSON.parse(init);
-    let steps = await redis.lrange(key + ":steps", 0, -1);
-    steps = steps.map(v => JSON.parse(v));
-    client.emit("gameData", JSON.stringify({ init, steps }));
+    let buf = await redis.getBuffer(key + ":log_gz");
+
+    client.emit("gameData", buf);
+  });
+
+  client.on("listGames", _ => {
+    let stream = redis.scanStream({ match: "games:*:log_gz" });
+    let games = [];
+    stream.on("data", sd => {
+      for (let game of sd) games.push({ key: game.replace(":log_gz", "") });
+    });
+    stream.on("end", async () => {
+      let pipeline = redis.pipeline();
+      for (let { key } of games) {
+        pipeline.get(key + ":map");
+        pipeline.get(key + ":rounds");
+        pipeline.ttl(key + ":log_gz");
+        pipeline.lrange(key + ":brains", 0, -1);
+      }
+      let gameData = await pipeline.exec();
+      for (let i = 0; i < games.length; i++) {
+        games[i].map = gameData.shift()[1];
+        games[i].rounds = gameData.shift()[1];
+        games[i].ttl = gameData.shift()[1];
+        games[i].brains = gameData.shift()[1];
+      }
+      client.emit("gameList", JSON.stringify(games));
+    });
+  });
+
+  client.on("listMaps", async _ => {
+    let maps_ = await redis.zrevrangebyscore(
+      "mappool",
+      "inf",
+      "0",
+      "WITHSCORES",
+      "LIMIT",
+      0,
+      50
+    );
+    let maps = [];
+    while (maps_.length) {
+      let key = maps_.shift();
+      let weight = maps_.shift();
+      maps.push({ key, weight });
+    }
+    client.emit("mapList", JSON.stringify(maps));
   });
 
   client.on("disconnect", function() {
@@ -274,8 +323,10 @@ io.on("connection", function(client) {
 });
 
 let brains = [];
+let mapPool = {};
 
 setInterval(async () => {
+  return;
   let count = await redis.llen("gameQueue");
   if (count) {
     console.log("[in queue]", count, "games");
@@ -289,12 +340,11 @@ setInterval(async () => {
     }
     console.log("queueing random games");
     for (let i = 0; i < 100; i++) {
-      let map = "maps:qualification";
+      let map = weightedRand(mapPool);
       let game_brains = brains.slice();
       shuffleArray(game_brains);
       game_brains = game_brains.slice(0, 2);
       let gameID = await makeGame({
-        rounds: 10000,
         scoreOnly: true,
         seed: Math.round(Math.random() * 1337 * 420),
         brains: game_brains,
@@ -312,11 +362,29 @@ async function refreshBrains() {
     "-inf",
     "LIMIT",
     0,
-    10
+    50
   );
 }
 refreshBrains();
 setInterval(refreshBrains, 1000 * 60 * 10);
+
+async function refreshMaps() {
+  let maps = await redis.zrevrangebyscore(
+    "mappool",
+    "inf",
+    "0",
+    "WITHSCORES",
+    "LIMIT",
+    0,
+    50
+  );
+  mapPool = {};
+  while (maps.length) {
+    mapPool[maps.shift()] = parseInt(maps.shift());
+  }
+}
+refreshMaps();
+setInterval(refreshMaps, 1000 * 60 * 10);
 
 console.log("listening on :3044");
 server.listen(3044);

@@ -13,10 +13,11 @@ import {
   Input
 } from "semantic-ui-react";
 import { connect } from "socket.io-client";
-import { IGameProtocol } from "./protocol";
+import { IInit } from "./protocol";
 
 import { GameVis } from "./GameVis";
 import { GameGrid } from "./GameGrid";
+import { GzipGameStream } from "./GzipGameStream";
 
 interface RankingEntry {
   key: string;
@@ -25,17 +26,34 @@ interface RankingEntry {
   games: number;
 }
 
+interface MapPoolEntry {
+  key: string;
+  weight: number;
+  games: number;
+}
+
+interface GameListEntry {
+  key: string;
+  map: string;
+  ttl: number;
+  rounds: number;
+  brains: string[];
+}
+
 interface State {
-  page: "ranking" | "submitMap" | "submitBrain" | "visGame";
+  page: "ranking" | "games" | "maps" | "submitMap" | "submitBrain" | "visGame";
   status: { message: string; negative?: boolean; title?: string };
   visID?: string;
-  visGame?: IGameProtocol;
+  visGame?: GzipGameStream;
   ranking?: RankingEntry[];
-  mapPreview?: IGameProtocol;
+  gameList?: GameListEntry[];
+  maps?: MapPoolEntry[];
+  mapPreview?: IInit;
 }
 
 export class Turnierserver extends React.Component<{}, State> {
   private ws: any; // TODO: @types/socket.io-client
+  private refreshTimer: number;
   private mapForm: TextArea;
   private brainForm: TextArea;
 
@@ -48,12 +66,27 @@ export class Turnierserver extends React.Component<{}, State> {
     this.handleItemClick = this.handleItemClick.bind(this);
   }
   handleItemClick(e: any, { name }: any) {
-    if (name === "ranking") {
-      this.ws.emit("fetchRanking");
-    }
-    this.setState({ page: name });
+    this.setState({ page: name }, this.refresh.bind(this));
   }
+
+  refresh() {
+    switch (this.state.page) {
+      case "ranking":
+        this.ws.emit("fetchRanking");
+        break;
+      case "games":
+        this.ws.emit("listGames");
+        break;
+      case "maps":
+        this.ws.emit("listMaps");
+        break;
+      default:
+        return;
+    }
+  }
+
   componentDidMount() {
+    this.refreshTimer = setInterval(this.refresh.bind(this), 5000);
     const host =
       location.hostname === "saarmeisen.ente.ninja"
         ? "saarmeisen.ente.ninja"
@@ -71,22 +104,30 @@ export class Turnierserver extends React.Component<{}, State> {
         }
       })
     );
+
     this.ws.on("status", (data: string) =>
       this.setState({ status: JSON.parse(data) })
     );
-    this.ws.on("mapResult", (data: any) => {
-      console.log("mapResult", data);
-      const mapPreview = JSON.parse(data);
+
+    this.ws.on("mapResult", (data: ArrayBuffer) => {
+      let mapPreview = new GzipGameStream(new Uint8Array(data)).init;
       this.setState({ mapPreview });
     });
+
     this.ws.on("ranking", (data: any) => {
-      console.log("ranking", data);
       this.setState({ ranking: JSON.parse(data) });
     });
 
-    this.ws.on("gameData", (data: string) => {
-      (window as any).gameData = data;
-      this.setState({ visGame: JSON.parse(data) });
+    this.ws.on("mapList", (data: any) => {
+      this.setState({ maps: JSON.parse(data) });
+    });
+
+    this.ws.on("gameList", (data: string) => {
+      this.setState({ gameList: JSON.parse(data) });
+    });
+
+    this.ws.on("gameData", (data: ArrayBuffer) => {
+      this.setState({ visGame: new GzipGameStream(new Uint8Array(data)) });
     });
 
     this.ws.emit("fetchRanking");
@@ -94,6 +135,7 @@ export class Turnierserver extends React.Component<{}, State> {
 
   componentWillUnmount() {
     this.ws.disconnect();
+    clearInterval(this.refreshTimer);
   }
 
   render() {
@@ -101,37 +143,23 @@ export class Turnierserver extends React.Component<{}, State> {
     return (
       <Container text style={{ marginTop: "7em" }}>
         <Menu>
-          <Menu.Item
-            name="ranking"
-            active={activeItem === "ranking"}
-            onClick={this.handleItemClick}
-          >
-            Global Ranking
-          </Menu.Item>
-
-          <Menu.Item
-            name="submitMap"
-            active={activeItem === "submitMap"}
-            onClick={this.handleItemClick}
-          >
-            Submit Map
-          </Menu.Item>
-
-          <Menu.Item
-            name="submitBrain"
-            active={activeItem === "submitBrain"}
-            onClick={this.handleItemClick}
-          >
-            Submit Brain
-          </Menu.Item>
-
-          <Menu.Item
-            name="visGame"
-            active={activeItem === "visGame"}
-            onClick={this.handleItemClick}
-          >
-            Visualize Game
-          </Menu.Item>
+          {[
+            { id: "ranking", text: "Global Ranking" },
+            { id: "maps", text: "Map-Pool" },
+            { id: "games", text: "Games" },
+            { id: "submitMap", text: "Submit Map" },
+            { id: "submitBrain", text: "Submit Brain" },
+            { id: "visGame", text: "Visualize Game" }
+          ].map(({ id, text }) => (
+            <Menu.Item
+              key={id}
+              active={activeItem === id}
+              name={id}
+              onClick={this.handleItemClick}
+            >
+              {text}
+            </Menu.Item>
+          ))}
         </Menu>
 
         <Segment>
@@ -173,6 +201,75 @@ export class Turnierserver extends React.Component<{}, State> {
               </Table>
             </>
           ) : null}
+          {activeItem === "games" ? (
+            <>
+              <Table celled fixed>
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell>Key</Table.HeaderCell>
+                    <Table.HeaderCell>Map</Table.HeaderCell>
+                    <Table.HeaderCell>Expires in</Table.HeaderCell>
+                    <Table.HeaderCell>Rounds</Table.HeaderCell>
+                    <Table.HeaderCell>Brains</Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {this.state.gameList !== undefined
+                    ? this.state.gameList.map(
+                        ({ key, map, ttl, rounds, brains }) => (
+                          <Table.Row key={key}>
+                            <Table.Cell>
+                              <a
+                                href="#"
+                                onClick={() => {
+                                  this.ws.emit("loadGame", key);
+                                  this.setState({
+                                    visID: key,
+                                    page: 'visGame'
+                                  });
+                                }}
+                              >
+                                {key}
+                              </a>
+                            </Table.Cell>
+                            <Table.Cell>{map}</Table.Cell>
+                            <Table.Cell>{ttl} s</Table.Cell>
+                            <Table.Cell>{rounds}</Table.Cell>
+                            <Table.Cell>{JSON.stringify(brains)}</Table.Cell>
+                          </Table.Row>
+                        )
+                      )
+                    : null}
+                </Table.Body>
+              </Table>
+            </>
+          ) : null}
+
+          {activeItem === "maps" ? (
+            <>
+              <Table celled fixed>
+                <Table.Header>
+                  <Table.Row>
+                    <Table.HeaderCell>Key</Table.HeaderCell>
+                    <Table.HeaderCell>Weight</Table.HeaderCell>
+                    <Table.HeaderCell>Rated Games</Table.HeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {this.state.maps !== undefined
+                    ? this.state.maps.map(({ key, weight, games }) => (
+                        <Table.Row key={key}>
+                          <Table.Cell>{key}</Table.Cell>
+                          <Table.Cell>{weight}</Table.Cell>
+                          <Table.Cell>{games}</Table.Cell>
+                        </Table.Row>
+                      ))
+                    : null}
+                </Table.Body>
+              </Table>
+            </>
+          ) : null}
+
           {activeItem === "submitMap" ? (
             <>
               <Form>
@@ -222,11 +319,7 @@ export class Turnierserver extends React.Component<{}, State> {
                 </Button.Group>
               </Form>
               {this.state.mapPreview ? (
-                this.state.mapPreview.init !== null ? (
-                  <GameGrid size={60} {...this.state.mapPreview.init} />
-                ) : (
-                  "errored while parsing the map"
-                )
+                <GameGrid size={60} {...this.state.mapPreview} />
               ) : null}
             </>
           ) : null}
@@ -277,10 +370,7 @@ export class Turnierserver extends React.Component<{}, State> {
                     basic
                     color="green"
                     onClick={() => {
-                      this.ws.emit(
-                        "loadGame",
-                        JSON.stringify({ key: this.state.visID })
-                      );
+                      this.ws.emit("loadGame", this.state.visID);
                     }}
                   >
                     Query Database
@@ -288,11 +378,7 @@ export class Turnierserver extends React.Component<{}, State> {
                 </Button.Group>
               </Form>
               {this.state.visGame ? (
-                this.state.visGame.init !== null ? (
-                  <GameVis size={60} game={this.state.visGame} />
-                ) : (
-                  "init empty"
-                )
+                <GameVis size={60} game={this.state.visGame} />
               ) : null}
             </>
           ) : null}
