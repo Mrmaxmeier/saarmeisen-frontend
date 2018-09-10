@@ -31,6 +31,8 @@ interface MapPoolEntry {
   weight: number;
   rounds: number;
   games: number;
+  name: string;
+  time: number;
 }
 
 interface GameListEntry {
@@ -252,19 +254,23 @@ export class Turnierserver extends React.Component<{}, State> {
                 <Table.Header>
                   <Table.Row>
                     <Table.HeaderCell>Key</Table.HeaderCell>
+                    <Table.HeaderCell>Name</Table.HeaderCell>
                     <Table.HeaderCell>Weight</Table.HeaderCell>
                     <Table.HeaderCell>Rounds</Table.HeaderCell>
                     <Table.HeaderCell>Rated Games</Table.HeaderCell>
+                    <Table.HeaderCell>Time</Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
                   {this.state.maps !== undefined
-                    ? this.state.maps.map(({ key, weight, rounds, games }) => (
+                    ? this.state.maps.map(({ key, weight, rounds, games, name, time }) => (
                         <Table.Row key={key}>
                           <Table.Cell>{key}</Table.Cell>
+                          <Table.Cell>{name}</Table.Cell>
                           <Table.Cell>{weight}</Table.Cell>
                           <Table.Cell>{rounds}</Table.Cell>
                           <Table.Cell>{games}</Table.Cell>
+                          <Table.Cell>{time}</Table.Cell>
                         </Table.Row>
                       ))
                     : null}
