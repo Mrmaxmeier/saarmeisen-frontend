@@ -288,7 +288,8 @@ io.on("connection", function(client) {
 
     let buf = await redis.getBuffer(key + ":log_gz");
 
-    client.emit("gameData", buf);
+    if (buf) client.emit("gameData", buf);
+    else emitStatus({ negative: true, message: "couldn't find game" });
   });
 
   client.on("listGames", _ => {

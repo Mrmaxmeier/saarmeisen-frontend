@@ -228,7 +228,7 @@ export class Turnierserver extends React.Component<{}, State> {
                                   this.ws.emit("loadGame", key);
                                   this.setState({
                                     visID: key,
-                                    page: 'visGame'
+                                    page: "visGame"
                                   });
                                 }}
                               >
@@ -258,21 +258,36 @@ export class Turnierserver extends React.Component<{}, State> {
                     <Table.HeaderCell>Weight</Table.HeaderCell>
                     <Table.HeaderCell>Rounds</Table.HeaderCell>
                     <Table.HeaderCell>Rated Games</Table.HeaderCell>
-                    <Table.HeaderCell>Time</Table.HeaderCell>
+                    <Table.HeaderCell>Avg Simulation Time</Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
                   {this.state.maps !== undefined
-                    ? this.state.maps.map(({ key, weight, rounds, games, name, time }) => (
-                        <Table.Row key={key}>
-                          <Table.Cell>{key}</Table.Cell>
-                          <Table.Cell>{name}</Table.Cell>
-                          <Table.Cell>{weight}</Table.Cell>
-                          <Table.Cell>{rounds}</Table.Cell>
-                          <Table.Cell>{games}</Table.Cell>
-                          <Table.Cell>{time}</Table.Cell>
-                        </Table.Row>
-                      ))
+                    ? this.state.maps.map(
+                        ({ key, weight, rounds, games, name, time }) => (
+                          <Table.Row key={key}>
+                            <Table.Cell>
+                              <a
+                                href="#"
+                                onClick={() => {
+                                  this.ws.emit("loadGame", key);
+                                  this.setState({
+                                    visID: key,
+                                    page: "visGame"
+                                  });
+                                }}
+                              >
+                                {key}
+                              </a>
+                            </Table.Cell>
+                            <Table.Cell>{name}</Table.Cell>
+                            <Table.Cell>{weight}</Table.Cell>
+                            <Table.Cell>{rounds}</Table.Cell>
+                            <Table.Cell>{games}</Table.Cell>
+                            <Table.Cell>{time} ms</Table.Cell>
+                          </Table.Row>
+                        )
+                      )
                     : null}
                 </Table.Body>
               </Table>
