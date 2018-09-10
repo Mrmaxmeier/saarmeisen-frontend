@@ -47,7 +47,7 @@ function weightedRand(spec) {
     total += spec[key];
   }
   let sum = 0;
-  let r = Math.random();
+  let r = Math.random() * total;
   for (let key of Object.keys(spec)) {
     sum += spec[key];
     if (r <= sum) return key;

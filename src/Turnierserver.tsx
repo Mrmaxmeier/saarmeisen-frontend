@@ -142,7 +142,7 @@ export class Turnierserver extends React.Component<{}, State> {
   render() {
     const activeItem = this.state.page;
     return (
-      <Container text style={{ marginTop: "7em" }}>
+      <Container style={{ marginTop: "7em" }}>
         <Menu>
           {[
             { id: "ranking", text: "Global Ranking" },
