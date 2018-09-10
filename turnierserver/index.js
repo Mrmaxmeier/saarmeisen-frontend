@@ -310,9 +310,8 @@ io.on("connection", function(client) {
   });
 
   client.on("listMaps", async _ => {
-    let _cached = await redis.get("cache:mapList")
-    if (cached)
-      return client.emit("mapList", _cached)
+    let _cached = await redis.get("cache:mapList");
+    if (_cached) return client.emit("mapList", _cached);
     let maps_ = await redis.zrevrangebyscore(
       "mappool",
       "inf",
@@ -333,8 +332,8 @@ io.on("connection", function(client) {
       maps.push({ key, weight, rounds, games, name, time: Math.round(time) });
     }
     client.emit("mapList", JSON.stringify(maps));
-    await redis.set("cache:mapList", JSON.stringify(maps))
-    await redis.expire("cache:mapList", 10)
+    await redis.set("cache:mapList", JSON.stringify(maps));
+    await redis.expire("cache:mapList", 10);
   });
 
   client.on("disconnect", function() {
