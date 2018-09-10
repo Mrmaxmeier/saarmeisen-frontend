@@ -1,4 +1,4 @@
-const K = 32;
+const K = 8;
 
 function getExpected(a, b) {
   return 1 / (1 + Math.pow(10, (b - a) / 400));

@@ -42,6 +42,10 @@ function hash(data) {
 }
 
 function weightedRand(spec) {
+  let total = 0;
+  for (let key of Object.keys(spec)) {
+    total += spec[key];
+  }
   let sum = 0;
   let r = Math.random();
   for (let key of Object.keys(spec)) {
@@ -176,7 +180,7 @@ io.on("connection", function(client) {
         emitStatus("Got map preview");
       } else {
         redis.zadd("mappool", 1, key);
-        redis.set(key + ":rounds", 10000)
+        redis.set(key + ":rounds", 10000);
         emitStatus("Submitted to the map-pool");
         refreshMaps();
       }
@@ -247,7 +251,7 @@ io.on("connection", function(client) {
       "WITHSCORES",
       "LIMIT",
       0,
-      10
+      50
     );
     let ranking = [];
     let pipeline = redis.pipeline();
@@ -313,8 +317,9 @@ io.on("connection", function(client) {
     while (maps_.length) {
       let key = maps_.shift();
       let weight = maps_.shift();
-      let rounds = await redis.get(key + ":rounds")
-      maps.push({ key, weight, rounds });
+      let rounds = await redis.get(key + ":rounds");
+      let games = await redis.get(key + ":games");
+      maps.push({ key, weight, rounds, games });
     }
     client.emit("mapList", JSON.stringify(maps));
   });
