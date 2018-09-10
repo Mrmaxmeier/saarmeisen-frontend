@@ -176,6 +176,7 @@ io.on("connection", function(client) {
         emitStatus("Got map preview");
       } else {
         redis.zadd("mappool", 1, key);
+        redis.set(key + ":rounds", 10000)
         emitStatus("Submitted to the map-pool");
         refreshMaps();
       }
