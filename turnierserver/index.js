@@ -142,13 +142,6 @@ function unlinkKeys(start) {
   });
 }
 
-function ttlKeys(start, ttl) {
-  let stream = redis.scanStream({ match: start + "*" });
-  stream.on("data", results => {
-    for (let key of results) redis.expire(key, ttl);
-  });
-}
-
 io.on("connection", function(client) {
   function emitStatus(status) {
     if (typeof status === "string") status = { message: status };
@@ -249,8 +242,6 @@ io.on("connection", function(client) {
           title: "Not qualified",
           message: `'${name}' reached ${ptsA} points`
         });
-        // TODO: TTL on creation
-        ttlKeys(qualification, 600);
         unlinkKeys(key);
       }
     });
@@ -319,6 +310,9 @@ io.on("connection", function(client) {
   });
 
   client.on("listMaps", async _ => {
+    let _cached = await redis.get("cache:mapList")
+    if (cached)
+      return client.emit("mapList", _cached)
     let maps_ = await redis.zrevrangebyscore(
       "mappool",
       "inf",
@@ -339,6 +333,8 @@ io.on("connection", function(client) {
       maps.push({ key, weight, rounds, games, name, time: Math.round(time) });
     }
     client.emit("mapList", JSON.stringify(maps));
+    await redis.set("cache:mapList", JSON.stringify(maps))
+    await redis.expire("cache:mapList", 10)
   });
 
   client.on("disconnect", function() {

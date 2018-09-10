@@ -18,6 +18,7 @@ import { IInit } from "./protocol";
 import { GameVis } from "./GameVis";
 import { GameGrid } from "./GameGrid";
 import { GzipGameStream } from "./GzipGameStream";
+import { getInitialSize } from "./StepManager";
 
 interface RankingEntry {
   key: string;
@@ -44,7 +45,7 @@ interface GameListEntry {
 }
 
 interface State {
-  page: "ranking" | "games" | "maps" | "submitMap" | "submitBrain" | "visGame";
+  page: "ranking" | "games" | "maps" | "submitMap" | "submitBrain" | "visGame" | "triggerGame";
   status: { message: string; negative?: boolean; title?: string };
   visID?: string;
   visGame?: GzipGameStream;
@@ -152,7 +153,8 @@ export class Turnierserver extends React.Component<{}, State> {
             { id: "games", text: "Games" },
             { id: "submitMap", text: "Submit Map" },
             { id: "submitBrain", text: "Submit Brain" },
-            { id: "visGame", text: "Visualize Game" }
+            { id: "visGame", text: "Visualize Game" },
+            { id: "triggerGame", text: "Trigger Game" }
           ].map(({ id, text }) => (
             <Menu.Item
               key={id}
@@ -213,7 +215,8 @@ export class Turnierserver extends React.Component<{}, State> {
                     <Table.HeaderCell>Map</Table.HeaderCell>
                     <Table.HeaderCell>Expires in</Table.HeaderCell>
                     <Table.HeaderCell>Rounds</Table.HeaderCell>
-                    <Table.HeaderCell>Brains</Table.HeaderCell>
+                    <Table.HeaderCell>Brain A</Table.HeaderCell>
+                    <Table.HeaderCell>Brain B</Table.HeaderCell>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -238,7 +241,8 @@ export class Turnierserver extends React.Component<{}, State> {
                             <Table.Cell>{map}</Table.Cell>
                             <Table.Cell>{ttl} s</Table.Cell>
                             <Table.Cell>{rounds}</Table.Cell>
-                            <Table.Cell>{JSON.stringify(brains)}</Table.Cell>
+                            <Table.Cell>{brains[0]}</Table.Cell>
+                            <Table.Cell>{brains[1]}</Table.Cell>
                           </Table.Row>
                         )
                       )
@@ -298,6 +302,8 @@ export class Turnierserver extends React.Component<{}, State> {
             <>
               <Form>
                 <Form.Field>
+                  <label>Nickname</label>
+                  <Input />
                   <label>Map Data</label>
                   <TextArea
                     style={{ fontFamily: "monospace" }}
@@ -343,12 +349,43 @@ export class Turnierserver extends React.Component<{}, State> {
                 </Button.Group>
               </Form>
               {this.state.mapPreview ? (
-                <GameGrid size={60} {...this.state.mapPreview} />
+                <GameGrid
+                  size={getInitialSize(this.state.mapPreview)}
+                  {...this.state.mapPreview}
+                />
               ) : null}
             </>
           ) : null}
 
           {activeItem === "submitBrain" ? (
+            <>
+              <Form>
+                <Form.Field>
+                  <label>Brain Data</label>
+                  <TextArea
+                    style={{ fontFamily: "monospace" }}
+                    placeholder={'brain "noop" { jump 0\n}'}
+                    ref={e => (this.brainForm = e!)}
+                  />
+                </Form.Field>
+                <Button.Group fluid>
+                  <Button
+                    type="submit"
+                    basic
+                    color="yellow"
+                    onClick={() => {
+                      const brainStr = (this.brainForm as any).ref.value;
+                      this.ws.emit("brainRequest", brainStr);
+                    }}
+                  >
+                    Qualify brain
+                  </Button>
+                </Button.Group>
+              </Form>
+            </>
+          ) : null}
+
+          {activeItem === "triggerGame" ? (
             <>
               <Form>
                 <Form.Field>
