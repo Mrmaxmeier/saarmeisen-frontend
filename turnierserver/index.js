@@ -162,6 +162,21 @@ function unlinkKeys(start) {
   });
 }
 
+async function cacheResult(client, chan, key, compute) {
+  let res = await redis.get(key);
+  if (res !== null) {
+    return client.emit(chan, res)
+  }
+
+  compute(async (data) => {
+    client.emit(chan, data)
+    let pl = redis.pipeline()
+    pl.set(key, data)
+    pl.expire(key, 1); // keep cache for one sec
+    await pl.exec()
+  })
+}
+
 io.on("connection", function(client) {
   function emitStatus(status) {
     if (typeof status === "string") status = { message: status };
@@ -232,8 +247,8 @@ io.on("connection", function(client) {
     console.log("[QUAL]", qualification);
 
     emitStatus("queueing qualification match for " + name + "...");
-    await redis.rpush("gameQueue", qualification);
-    redis.rpush("ping", "B");
+    await redis.lpush("gameQueue", qualification);
+    redis.publish("ping", "B");
     onStatus(qualification, "processing", () =>
       emitStatus("started qualification match for " + name)
     );
@@ -296,30 +311,32 @@ io.on("connection", function(client) {
   });
 
   client.on("fetchRanking", async _ => {
-    let scoreData = await redis.zrevrangebyscore(
-      "ranking",
-      "inf",
-      "-inf",
-      "WITHSCORES",
-      "LIMIT",
-      0,
-      50
-    );
-    let ranking = [];
-    let pipeline = redis.pipeline();
-    while (scoreData.length) {
-      let key = scoreData.shift();
-      let elo = scoreData.shift();
-      pipeline.get(key + ":name");
-      pipeline.get(key + ":games");
-      ranking.push({ key, elo });
-    }
-    let otherData = await pipeline.exec();
-    for (let i = 0; i < ranking.length; i++) {
-      ranking[i].name = otherData.shift()[1];
-      ranking[i].games = otherData.shift()[1];
-    }
-    client.emit("ranking", JSON.stringify(ranking));
+    cacheResult(client, "ranking", "cache:ranking", async emitCache => {
+      let scoreData = await redis.zrevrangebyscore(
+        "ranking",
+        "inf",
+        "-inf",
+        "WITHSCORES",
+        "LIMIT",
+        0,
+        50
+      );
+      let ranking = [];
+      let pipeline = redis.pipeline();
+      while (scoreData.length) {
+        let key = scoreData.shift();
+        let elo = scoreData.shift();
+        pipeline.get(key + ":name");
+        pipeline.get(key + ":games");
+        ranking.push({ key, elo });
+      }
+      let otherData = await pipeline.exec();
+      for (let i = 0; i < ranking.length; i++) {
+        ranking[i].name = otherData.shift()[1];
+        ranking[i].games = otherData.shift()[1];
+      }
+      emitCache(JSON.stringify(ranking));
+    });
   });
 
   client.on("loadGame", async key => {
@@ -334,60 +351,62 @@ io.on("connection", function(client) {
   });
 
   client.on("listGames", _ => {
-    let stream = redis.scanStream({ match: "games:*:log_gz" });
-    let games = [];
-    stream.on("data", sd => {
-      for (let game of sd) games.push({ key: game.replace(":log_gz", "") });
-    });
-    stream.on("end", async () => {
-      let pipeline = redis.pipeline();
-      for (let { key } of games) {
-        pipeline.get(key + ":map");
-        pipeline.get(key + ":rounds");
-        pipeline.ttl(key + ":log_gz");
-        pipeline.lrange(key + ":brains", 0, -1);
-      }
-      let gameData = await pipeline.exec();
-      for (let i = 0; i < games.length; i++) {
-        games[i].map = gameData.shift()[1];
-        games[i].rounds = gameData.shift()[1];
-        games[i].ttl = gameData.shift()[1];
-        games[i].brains = gameData.shift()[1];
-        for (let bi = 0; bi < games[i].brains.length; bi++) {
-          games[i].brains[bi] = await redis.get(games[i].brains[bi] + ":name");
+    cacheResult(client, "gameList", "cache:gameList", async emitCache => {
+      let stream = redis.scanStream({ match: "games:*:log_gz" });
+      let games = [];
+      stream.on("data", sd => {
+        for (let game of sd) games.push({ key: game.replace(":log_gz", "") });
+      });
+      stream.on("end", async () => {
+        let pipeline = redis.pipeline();
+        for (let { key } of games) {
+          pipeline.get(key + ":map");
+          pipeline.get(key + ":rounds");
+          pipeline.ttl(key + ":log_gz");
+          pipeline.lrange(key + ":brains", 0, -1);
         }
-      }
-      games.sort((a, b) => a.ttl - b.ttl);
+        let gameData = await pipeline.exec();
+        for (let i = 0; i < games.length; i++) {
+          games[i].map = gameData.shift()[1];
+          games[i].rounds = gameData.shift()[1];
+          games[i].ttl = gameData.shift()[1];
+          games[i].brains = gameData.shift()[1];
+          for (let bi = 0; bi < games[i].brains.length; bi++) {
+            games[i].brains[bi] = await redis.get(
+              games[i].brains[bi] + ":name"
+            );
+          }
+        }
+        games.sort((a, b) => a.ttl - b.ttl);
 
-      client.emit("gameList", JSON.stringify(games));
+        emitCache(JSON.stringify(games));
+      });
     });
   });
 
   client.on("listMaps", async _ => {
-    let _cached = await redis.get("cache:mapList");
-    if (_cached) return client.emit("mapList", _cached);
-    let maps_ = await redis.zrevrangebyscore(
-      "mappool",
-      "inf",
-      "0",
-      "WITHSCORES",
-      "LIMIT",
-      0,
-      50
-    );
-    let maps = [];
-    while (maps_.length) {
-      let key = maps_.shift();
-      let weight = maps_.shift();
-      let rounds = await redis.get(key + ":rounds");
-      let name = await redis.get(key + ":name");
-      let time = await redis.get(key + ":time");
-      let games = await redis.get(key + ":games");
-      maps.push({ key, weight, rounds, games, name, time: Math.round(time) });
-    }
-    client.emit("mapList", JSON.stringify(maps));
-    await redis.set("cache:mapList", JSON.stringify(maps));
-    await redis.expire("cache:mapList", 10);
+    cacheResult(client, "mapList", "cache:mapList", async emitCache => {
+      let maps_ = await redis.zrevrangebyscore(
+        "mappool",
+        "inf",
+        "0",
+        "WITHSCORES",
+        "LIMIT",
+        0,
+        50
+      );
+      let maps = [];
+      while (maps_.length) {
+        let key = maps_.shift();
+        let weight = maps_.shift();
+        let rounds = await redis.get(key + ":rounds");
+        let name = await redis.get(key + ":name");
+        let time = await redis.get(key + ":time");
+        let games = await redis.get(key + ":games");
+        maps.push({ key, weight, rounds, games, name, time: Math.round(time) });
+      }
+      emitCache(JSON.stringify(maps));
+    });
   });
 
   client.on("stats", async _ => {
@@ -414,7 +433,7 @@ let mapPool = {};
 
 setInterval(async () => {
   let count = await redis.llen("gameQueue");
-  if (count) {
+  if (count > 100) {
     console.log("[in queue]", count, "games");
     redis.publish("ping", "Q");
   } else {
@@ -424,7 +443,7 @@ setInterval(async () => {
     }
     console.log("queueing random games");
     for (let i = 0; i < 100; i++) {
-      if (i % 10 == 0) await redis.publish("ping", "Q");
+      if (i % 50 == 0) await redis.publish("ping", "Q");
       let map = weightedRand(mapPool);
       let game_brains = brains.slice();
       shuffleArray(game_brains);

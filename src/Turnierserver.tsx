@@ -77,7 +77,7 @@ export class Turnierserver extends React.Component<{}, State> {
   }
 
   componentDidMount() {
-    this.refreshTimer = setInterval(this.refresh.bind(this), 5000);
+    this.refreshTimer = setInterval(this.refresh.bind(this), 1000);
     const host =
       location.hostname === "saarmeisen.ente.ninja"
         ? "saarmeisen.ente.ninja"
