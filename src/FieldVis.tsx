@@ -2,6 +2,7 @@ import * as React from "react";
 import { AntVis } from "./AntVis";
 import { IField } from "./protocol";
 import { DebuggingSelector } from "./GameVis";
+import { _viridis_data } from "./viridis";
 
 export const FieldColors = {
   ".": "lightgrey",
@@ -35,8 +36,10 @@ function hexSVGString(size: number) {
 }
 
 interface Props {
-  field: IField;
   size: number;
+  showMarkers: string | null;
+
+  field: IField;
   debuggingSelector?: (sel: DebuggingSelector) => void;
 }
 
@@ -47,6 +50,24 @@ export class FieldVis extends React.PureComponent<Props> {
     let hasMarkers = markers.length !== 0;
     if (hasMarkers) {
       hasMarkers = !!markers.find(a => a.values.indexOf(true) !== -1);
+    }
+
+    let markerColor = null;
+    if (this.props.showMarkers !== null) {
+      let data = markers.find(
+        marker => marker.swarm_id === this.props.showMarkers
+      );
+      let c = -1;
+      if (data) {
+        for (let i = 0; i < 7; i++) {
+          if (data.values[i]) {
+            c += Math.pow(2, 7 - i);
+          }
+        }
+      }
+      if (c !== -1) {
+        markerColor = _viridis_data[c];
+      }
     }
 
     return (
@@ -68,6 +89,20 @@ export class FieldVis extends React.PureComponent<Props> {
           className="hexagon"
           points={hexSVGString(this.props.size)}
         />
+        {markerColor !== null ? <polygon style={{fill: '#000'}} points={hexSVGString(this.props.size * 0.375)}/> : null}
+        {markerColor !== null ? (
+          <polygon
+            onClick={() =>
+              this.props.debuggingSelector &&
+              this.props.debuggingSelector({ field: { x, y } })
+            }
+            style={{
+              fill: `rgb(${markerColor[0] * 256}, ${markerColor[1] *
+                256}, ${markerColor[2] * 256})`
+            }}
+            points={hexSVGString(this.props.size * 0.35)}
+          />
+        ) : null}
         {food ? (
           <text
             textAnchor="middle"
@@ -79,19 +114,21 @@ export class FieldVis extends React.PureComponent<Props> {
           </text>
         ) : null}
 
-        {hasMarkers ? (
+        {hasMarkers && this.props.showMarkers === null ? (
           <text textAnchor="middle" alignmentBaseline="central">
             MARKERS
           </text>
         ) : null}
 
-        {this.props.size > 70 ? <text
-          textAnchor="middle"
-          alignmentBaseline="central"
-          transform={`translate(0, ${this.props.size * 0.7})`}
-        >
-          {x + ", " + y}
-        </text> : null}
+        {this.props.size > 70 ? (
+          <text
+            textAnchor="middle"
+            alignmentBaseline="central"
+            transform={`translate(0, ${this.props.size * 0.7})`}
+          >
+            {x + ", " + y}
+          </text>
+        ) : null}
         {ant ? (
           <AntVis
             size={this.props.size}

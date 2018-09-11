@@ -83,6 +83,7 @@ export class SubmitMap extends React.Component<Props, State> {
         </Form>
         {this.props.mapPreview ? (
           <GameGrid
+            showMarkers={null}
             size={getInitialSize(this.props.mapPreview)}
             {...this.props.mapPreview}
           />

@@ -16,6 +16,8 @@ export interface DebuggingSelector {
 
 interface State {
   size: number;
+  showMarkers: string | null;
+
   standings: IStanding[];
   fields: IField[];
   currentStepIndex: number;
@@ -36,7 +38,7 @@ export class GameVis extends React.Component<Props, State> {
     super(props);
     this.stepManager = this.getStepManager(props.game);
     this.toggleAutoStep = this.toggleAutoStep.bind(this);
-    this.state = this.stepManager.getState();
+    this.state = { ...this.stepManager.getState(), showMarkers: null };
   }
 
   getStepManager(game: IGameProtocol | GzipGameStream): IStepManager {
@@ -81,7 +83,11 @@ export class GameVis extends React.Component<Props, State> {
         } else {
           let state = this.state;
           for (let i = 0; i < count; i++) {
-            state = { ...this.stepManager.next(), size: state.size };
+            state = {
+              ...this.stepManager.next(),
+              size: state.size,
+              showMarkers: state.showMarkers
+            };
           }
           this.setState(state);
         }
@@ -95,16 +101,48 @@ export class GameVis extends React.Component<Props, State> {
     return (
       <div>
         <Container text>
-          <span>HexSize:</span>
-          <input
-            style={{ width: "5em" }}
-            min={25}
-            type="number"
-            value={this.state.size}
-            onChange={e =>
-              this.setState({ size: parseInt(e.target.value, 10) })
-            }
-          />
+          <table>
+            <tbody>
+              <tr>
+                <th>HexSize</th>
+                <td>
+                  <input
+                    style={{ width: "5em" }}
+                    min={25}
+                    type="number"
+                    value={this.state.size}
+                    onChange={e =>
+                      this.setState({ size: parseInt(e.target.value, 10) })
+                    }
+                  />
+                </td>
+              </tr>
+              <tr>
+                <th>Show Markers</th>
+                <td>
+                  <select
+                    onChange={e => {
+                      let showMarkers =
+                        e.target.value === "" ? null : e.target.value;
+                      this.setState({ showMarkers });
+                    }}
+                  >
+                    <option value="">don't show markers</option>
+                    <option value="A">Swarm A</option>
+                    <option value="B">Swarm B</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <th>Marker Encoding</th>
+                <td>
+                  <select>
+                    <option value="generic">Generic Colorscheme</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
           {this.state.standings.length ? (
             <table style={{ textAlign: "center" }}>
@@ -188,6 +226,7 @@ export class GameVis extends React.Component<Props, State> {
           <GameGrid
             size={this.state.size}
             fields={this.state.fields}
+            showMarkers={this.state.showMarkers}
             width={width}
             height={height}
             debuggingSelector={debugging => this.setState({ debugging })}

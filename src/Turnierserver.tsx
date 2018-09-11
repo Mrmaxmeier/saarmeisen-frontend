@@ -1,5 +1,11 @@
 import * as React from "react";
-import { Container, Menu, Segment, Message, Statistic } from "semantic-ui-react";
+import {
+  Container,
+  Menu,
+  Segment,
+  Message,
+  Statistic
+} from "semantic-ui-react";
 import { connect } from "socket.io-client";
 import { IInit } from "./protocol";
 
@@ -34,7 +40,8 @@ interface State {
     avgRtt: number;
     queued: number;
     connections: number;
-  }
+  };
+  banner?: any;
 }
 
 export class Turnierserver extends React.Component<{}, State> {
@@ -49,11 +56,13 @@ export class Turnierserver extends React.Component<{}, State> {
     };
     this.handleItemClick = this.handleItemClick.bind(this);
   }
+
   handleItemClick(e: any, { name }: any) {
     this.setState({ page: name }, this.refresh.bind(this));
   }
 
   refresh() {
+    this.ws.emit("banner");
     switch (this.state.page) {
       case "ranking":
         this.ws.emit("fetchRanking");
@@ -68,7 +77,7 @@ export class Turnierserver extends React.Component<{}, State> {
         this.ws.emit("listMaps");
         this.ws.emit("fetchRanking");
         break;
-        case "stats":
+      case "stats":
         this.ws.emit("stats");
         break;
       default:
@@ -123,7 +132,11 @@ export class Turnierserver extends React.Component<{}, State> {
 
     this.ws.on("stats", (data: string) => {
       this.setState({ stats: JSON.parse(data) });
-    })
+    });
+
+    this.ws.on("banner", (data: string) => {
+      this.setState({ banner: JSON.parse(data) });
+    });
 
     this.ws.emit("fetchRanking");
   }
@@ -209,17 +222,24 @@ export class Turnierserver extends React.Component<{}, State> {
                 <Statistic.Label>In Queue</Statistic.Label>
               </Statistic>
               <Statistic>
-                <Statistic.Value>{Math.round(this.state.stats.avgRtt * 100) / 100}</Statistic.Value>
+                <Statistic.Value>
+                  {Math.round(this.state.stats.avgRtt * 100) / 100}
+                </Statistic.Value>
                 <Statistic.Label>Average RTT (s)</Statistic.Label>
               </Statistic>
               <Statistic>
-                <Statistic.Value>{this.state.stats.connections}</Statistic.Value>
+                <Statistic.Value>
+                  {this.state.stats.connections}
+                </Statistic.Value>
                 <Statistic.Label>Active Connections</Statistic.Label>
               </Statistic>
             </Statistic.Group>
           ) : null}
         </Segment>
-          {activeItem === "visGame" ? <VisGame ws={this.ws} visGame={this.state.visGame} /> : null}
+        {this.state.banner ? <Message attached="bottom" {...this.state.banner} /> : null}
+        {activeItem === "visGame" ? (
+          <VisGame ws={this.ws} visGame={this.state.visGame} />
+        ) : null}
       </Container>
     );
   }

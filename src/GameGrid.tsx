@@ -1,10 +1,11 @@
 import * as React from "react";
 import { FieldVis } from "./FieldVis";
-import { game, IField } from "./protocol";
+import { IField } from "./protocol";
 import { DebuggingSelector } from "./GameVis";
 
 interface IProps {
   size: number;
+  showMarkers: string | null;
   fields: IField[];
   width: number;
   height: number;
@@ -12,52 +13,13 @@ interface IProps {
 }
 
 export class GameGrid extends React.Component<IProps> {
-  public tiles(): IField[] {
-    return [
-      ...game.init.fields,
-      {
-        x: 1,
-        y: 2,
-        type: "#",
-        markers: []
-      },
-      {
-        x: 1,
-        y: 1,
-        type: "B",
-        markers: [],
-        ant: {
-          id: 2,
-          direction: "southeast",
-          carries_food: false,
-          program_counter: 0,
-          register: [false, false, false, false, false, false],
-          rest_time: 0,
-          swarm_id: "C"
-        }
-      },
-      {
-        x: 1,
-        y: 0,
-        type: ".",
-        markers: [],
-        ant: {
-          id: 3,
-          direction: "southwest",
-          carries_food: false,
-          program_counter: 0,
-          register: [false, false, false, false, false, false],
-          rest_time: 0,
-          swarm_id: "A"
-        }
-      }
-    ];
-  }
+
   public translateHexagon(x: number, y: number) {
     let tX = (x + (y % 2) / 2) * this.props.size * Math.sqrt(3);
     let tY = (y * this.props.size * 3) / 2;
     return `translate(${tX}, ${tY})`;
   }
+
   public render() {
     return (
       <svg
@@ -113,6 +75,7 @@ export class GameGrid extends React.Component<IProps> {
                 size={this.props.size}
                 field={field}
                 debuggingSelector={this.props.debuggingSelector}
+                showMarkers={this.props.showMarkers}
               />
             </g>
           ))}

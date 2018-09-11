@@ -165,16 +165,16 @@ function unlinkKeys(start) {
 async function cacheResult(client, chan, key, compute) {
   let res = await redis.get(key);
   if (res !== null) {
-    return client.emit(chan, res)
+    return client.emit(chan, res);
   }
 
-  compute(async (data) => {
-    client.emit(chan, data)
-    let pl = redis.pipeline()
-    pl.set(key, data)
-    pl.expire(key, 1); // keep cache for one sec
-    await pl.exec()
-  })
+  compute(async data => {
+    client.emit(chan, data);
+    let pl = redis.pipeline();
+    pl.set(key, data);
+    pl.expire(key, 2);
+    await pl.exec();
+  });
 }
 
 io.on("connection", function(client) {
@@ -300,7 +300,10 @@ io.on("connection", function(client) {
     }
 
     onStatus(gameID, "processing", () =>
-      emitStatus("started processing " + gameID)
+      emitStatus({
+        title: "started processing " + gameID,
+        message: "Note: JSON-serialization can take a while"
+      })
     );
     onStatus(gameID, "gameResults", async () => {
       clearStatus(gameID, "processing");
@@ -345,6 +348,7 @@ io.on("connection", function(client) {
     let buf = await redis.getBuffer(key + ":log_gz");
 
     if (buf) {
+      emitStatus("transferring " + key);
       client.emit("gameData", buf);
       emitStatus("fetched game");
     } else emitStatus({ negative: true, message: "couldn't find game" });
@@ -362,14 +366,21 @@ io.on("connection", function(client) {
         for (let { key } of games) {
           pipeline.get(key + ":map");
           pipeline.get(key + ":rounds");
+          pipeline.get(key + ":time");
           pipeline.ttl(key + ":log_gz");
+          pipeline.hget(key + ":result:points", "A");
+          pipeline.hget(key + ":result:points", "B");
           pipeline.lrange(key + ":brains", 0, -1);
         }
         let gameData = await pipeline.exec();
         for (let i = 0; i < games.length; i++) {
           games[i].map = gameData.shift()[1];
+          games[i].map = await redis.get(games[i].map + ":name");
           games[i].rounds = gameData.shift()[1];
+          games[i].time = gameData.shift()[1];
           games[i].ttl = gameData.shift()[1];
+          games[i].pointsA = gameData.shift()[1];
+          games[i].pointsB = gameData.shift()[1];
           games[i].brains = gameData.shift()[1];
           for (let bi = 0; bi < games[i].brains.length; bi++) {
             games[i].brains[bi] = await redis.get(
@@ -423,6 +434,11 @@ io.on("connection", function(client) {
     );
   });
 
+  client.on("banner", async _ => {
+    let banner = await redis.get("banner");
+    client.emit("banner", banner || "null");
+  });
+
   client.on("disconnect", function() {
     console.log("disconnect", client.id);
   });
@@ -433,7 +449,7 @@ let mapPool = {};
 
 setInterval(async () => {
   let count = await redis.llen("gameQueue");
-  if (count > 100) {
+  if (count > 50) {
     console.log("[in queue]", count, "games");
     redis.publish("ping", "Q");
   } else {
@@ -442,8 +458,7 @@ setInterval(async () => {
       return;
     }
     console.log("queueing random games");
-    for (let i = 0; i < 100; i++) {
-      if (i % 50 == 0) await redis.publish("ping", "Q");
+    for (let i = 0; i < 50; i++) {
       let map = weightedRand(mapPool);
       let game_brains = brains.slice();
       shuffleArray(game_brains);
@@ -457,7 +472,7 @@ setInterval(async () => {
     }
     await redis.publish("ping", "Q");
   }
-}, 10000);
+}, 5000);
 
 async function refreshBrains() {
   brains = await redis.zrevrangebyscore(

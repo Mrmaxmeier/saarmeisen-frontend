@@ -1,13 +1,15 @@
 const Redis = require("ioredis");
 const inquirer = require("inquirer");
 
+var ui = new inquirer.ui.BottomBar();
+
 var redis = new Redis();
 
 function expirePat(start) {
   let stream = redis.scanStream({ match: start + "*" });
   stream.on("data", results => {
     for (let key of results) {
-      console.log("expire", key, 60);
+      ui.log.write(`expire ${key} 60`);
       redis.expire(key, 60);
     }
   });
@@ -35,7 +37,12 @@ function mainmenu() {
   inquirer
     .prompt([
       {
-        choices: ["edit map", "remove brain", "map maintenance"],
+        choices: [
+          "edit map",
+          "remove brain",
+          "map maintenance",
+          "expire stuck games"
+        ],
         type: "list",
         name: "action"
       }
@@ -103,6 +110,8 @@ function mainmenu() {
           await expirePat(res.brain.split(" % ")[0]);
           await redis.zrem("ranking", res.brain.split(" % ")[0]);
           break;
+        case "expire stuck games":
+          await expirePat("games:");
       }
       mainmenu();
     })
