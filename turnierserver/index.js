@@ -9,7 +9,7 @@ var redis = new Redis();
 
 redis.defineCommand("expMovingAverage", {
   numberOfKeys: 2,
-  lua: `redis.call('set', KEYS[1], (0.99 * (redis.call('get', KEYS[1])) or KEYS[2]) + (1.0 - 0.99) * KEYS[2])`
+  lua: `redis.call('set', KEYS[1], (0.95 * (redis.call('get', KEYS[1])) or KEYS[2]) + (1.0 - 0.95) * KEYS[2])`
 });
 
 redis.set("maps:sample", "2\n2\n.A\nB.");
@@ -30,6 +30,8 @@ redis.set(
 redis.set("brains:liechtenstein:name", "liechtenstein");
 redis.zadd("ranking", "NX", 1200, "brains:liechtenstein");
 redis.zadd("mappool", "NX", 1, "maps:qualification");
+
+redis.set("stats:avg_rtt", 0);
 
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -59,20 +61,32 @@ function weightedRand(spec) {
   }
 }
 
-async function eloifyGame(key) {
+async function processResult(key) {
   let brains = await redis.lrange(key + ":brains", 0, -1);
   let points = await redis.hgetall(key + ":result:points");
   let map = await redis.get(key + ":map");
   if (brains.length === 2) {
     let [brainA, brainB] = brains;
+
     await redis.incr(brainA + ":games");
     await redis.incr(brainB + ":games");
     await redis.incr(map + ":games");
     let time = await redis.get(key + ":time");
     await redis.expMovingAverage(map + ":time", time);
+    let queued_time = await redis.get(key + ":queued_time");
+    let curr_time = await redis.time();
+
+    queued_time = parseFloat(queued_time);
+    curr_time = parseFloat(curr_time[0]);
+    await redis.expMovingAverage("stats:avg_rtt", curr_time - queued_time);
+
     console.log(brains, points);
     let eloA = await redis.zscore("ranking", brainA);
     let eloB = await redis.zscore("ranking", brainB);
+    if (eloA == null || eloB == null) {
+      console.log("not ranking qualification game ", key);
+      return;
+    }
     let res = processEloGame(
       { elo: parseInt(eloA, 10), points: parseInt(points.A, 10) },
       { elo: parseInt(eloB, 10), points: parseInt(points.B, 10) }
@@ -106,13 +120,13 @@ subConnection.on("message", async (chan, message) => {
   if (RESULT_CALLBACKS[chan][message]) {
     RESULT_CALLBACKS[chan][message]();
     clearStatus(message, chan);
-  } else {
-    if (chan === "gameResults") {
-      let key = message;
-      await eloifyGame(key);
-      let scoreOnly = await redis.get(key + ":scoreOnly");
-      if (scoreOnly) unlinkKeys(key);
-    }
+  }
+
+  if (chan === "gameResults") {
+    let key = message;
+    await processResult(key);
+    let scoreOnly = await redis.get(key + ":scoreOnly");
+    if (scoreOnly) unlinkKeys(key);
   }
 });
 
@@ -123,6 +137,9 @@ async function makeGame(data) {
   if (!data.seed) {
     data.seed = Math.round(Math.random() * 1337 * 420);
   }
+  let queued = await redis.time();
+  data.queued_time = queued[0];
+
   var pipeline = redis.pipeline();
   let key = "games:" + hash(JSON.stringify(data));
   for (let e of Object.keys(data)) {
@@ -267,6 +284,14 @@ io.on("connection", function(client) {
       await redis.rpush("gameQueue", gameID);
     }
 
+    onStatus(gameID, "processing", () =>
+      emitStatus("started processing " + gameID)
+    );
+    onStatus(gameID, "gameResults", async () => {
+      clearStatus(gameID, "processing");
+      emitStatus("game ready: " + gameID);
+    });
+
     await redis.publish("ping", "T");
   });
 
@@ -328,8 +353,12 @@ io.on("connection", function(client) {
         games[i].rounds = gameData.shift()[1];
         games[i].ttl = gameData.shift()[1];
         games[i].brains = gameData.shift()[1];
+        for (let bi = 0; bi < games[i].brains.length; bi++) {
+          games[i].brains[bi] = await redis.get(games[i].brains[bi] + ":name");
+        }
       }
       games.sort((a, b) => a.ttl - b.ttl);
+
       client.emit("gameList", JSON.stringify(games));
     });
   });
@@ -359,6 +388,20 @@ io.on("connection", function(client) {
     client.emit("mapList", JSON.stringify(maps));
     await redis.set("cache:mapList", JSON.stringify(maps));
     await redis.expire("cache:mapList", 10);
+  });
+
+  client.on("stats", async _ => {
+    let avg_rtt = await redis.get("stats:avg_rtt");
+    let queued = await redis.llen("gameQueue");
+
+    client.emit(
+      "stats",
+      JSON.stringify({
+        avgRtt: parseFloat(avg_rtt),
+        queued: parseInt(queued),
+        connections: io.engine.clientsCount
+      })
+    );
   });
 
   client.on("disconnect", function() {

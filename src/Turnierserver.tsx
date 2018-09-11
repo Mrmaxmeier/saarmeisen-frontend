@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Container, Menu, Segment, Message } from "semantic-ui-react";
+import { Container, Menu, Segment, Message, Statistic } from "semantic-ui-react";
 import { connect } from "socket.io-client";
 import { IInit } from "./protocol";
 
@@ -21,7 +21,8 @@ interface State {
     | "submitMap"
     | "submitBrain"
     | "visGame"
-    | "triggerGame";
+    | "triggerGame"
+    | "stats";
   status: { message: string; negative?: boolean; title?: string };
   visID?: string;
   visGame?: GzipGameStream;
@@ -29,6 +30,11 @@ interface State {
   gameList?: GameListEntry[];
   maps?: MapPoolEntry[];
   mapPreview?: IInit;
+  stats?: {
+    avgRtt: number;
+    queued: number;
+    connections: number;
+  }
 }
 
 export class Turnierserver extends React.Component<{}, State> {
@@ -61,6 +67,9 @@ export class Turnierserver extends React.Component<{}, State> {
       case "triggerGame":
         this.ws.emit("listMaps");
         this.ws.emit("fetchRanking");
+        break;
+        case "stats":
+        this.ws.emit("stats");
         break;
       default:
         return;
@@ -112,6 +121,10 @@ export class Turnierserver extends React.Component<{}, State> {
       this.setState({ visGame: new GzipGameStream(new Uint8Array(data)) });
     });
 
+    this.ws.on("stats", (data: string) => {
+      this.setState({ stats: JSON.parse(data) });
+    })
+
     this.ws.emit("fetchRanking");
   }
 
@@ -132,7 +145,8 @@ export class Turnierserver extends React.Component<{}, State> {
             { id: "submitMap", text: "Submit Map" },
             { id: "submitBrain", text: "Submit Brain" },
             { id: "visGame", text: "Visualize Game" },
-            { id: "triggerGame", text: "Trigger Game" }
+            { id: "triggerGame", text: "Trigger Game" },
+            { id: "stats", text: "Stats" }
           ].map(({ id, text }) => (
             <Menu.Item
               key={id}
@@ -187,8 +201,25 @@ export class Turnierserver extends React.Component<{}, State> {
               ranking={this.state.ranking}
             />
           ) : null}
-          {activeItem === "visGame" ? <VisGame ws={this.ws} visGame={this.state.visGame} /> : null}
+
+          {activeItem === "stats" && this.state.stats !== undefined ? (
+            <Statistic.Group>
+              <Statistic>
+                <Statistic.Value>{this.state.stats.queued}</Statistic.Value>
+                <Statistic.Label>In Queue</Statistic.Label>
+              </Statistic>
+              <Statistic>
+                <Statistic.Value>{Math.round(this.state.stats.avgRtt * 100) / 100}</Statistic.Value>
+                <Statistic.Label>Average RTT (s)</Statistic.Label>
+              </Statistic>
+              <Statistic>
+                <Statistic.Value>{this.state.stats.connections}</Statistic.Value>
+                <Statistic.Label>Active Connections</Statistic.Label>
+              </Statistic>
+            </Statistic.Group>
+          ) : null}
         </Segment>
+          {activeItem === "visGame" ? <VisGame ws={this.ws} visGame={this.state.visGame} /> : null}
       </Container>
     );
   }
