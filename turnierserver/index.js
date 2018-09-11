@@ -9,7 +9,7 @@ var redis = new Redis();
 
 redis.defineCommand("expMovingAverage", {
   numberOfKeys: 2,
-  lua: `redis.call('set', KEYS[1], (0.99 * redis.call('get', KEYS[1])) + (1.0 - 0.99) * KEYS[2])`
+  lua: `redis.call('set', KEYS[1], (0.99 * (redis.call('get', KEYS[1])) or KEYS[2]) + (1.0 - 0.99) * KEYS[2])`
 });
 
 redis.set("maps:sample", "2\n2\n.A\nB.");
@@ -120,6 +120,9 @@ async function makeGame(data) {
   if (!data.rounds) {
     data.rounds = await redis.get(data.map + ":rounds");
   }
+  if (!data.seed) {
+    data.seed = Math.round(Math.random() * 1337 * 420);
+  }
   var pipeline = redis.pipeline();
   let key = "games:" + hash(JSON.stringify(data));
   for (let e of Object.keys(data)) {
@@ -154,7 +157,7 @@ io.on("connection", function(client) {
 
   client.on("mapRequest", async data => {
     console.log("mapRequest", JSON.parse(data));
-    const { map, preview } = JSON.parse(data);
+    const { map, name, preview } = JSON.parse(data);
 
     if (!preview && map.match(/[C-Z]/) !== null) {
       emitStatus({
@@ -169,6 +172,7 @@ io.on("connection", function(client) {
     redis.set(key, map);
     if (preview) redis.set(key + ":preview", preview);
 
+    await redis.set(key + ":name", name);
     await redis.rpush("mapQueue", key);
     redis.publish("ping", "M");
     emitStatus(`queued ${key}`);
@@ -180,8 +184,9 @@ io.on("connection", function(client) {
         unlinkKeys(key);
         emitStatus("Got map preview");
       } else {
-        redis.zadd("mappool", 1, key);
-        redis.set(key + ":rounds", 10000);
+        await redis.set(key + ":rounds", 10000);
+        await redis.set(key + ":time", 100);
+        await redis.zadd("mappool", 1, key);
         emitStatus("Submitted to the map-pool");
         refreshMaps();
       }
@@ -247,6 +252,24 @@ io.on("connection", function(client) {
     });
   });
 
+  client.on("triggerGame", async data => {
+    let { lpush, map, brainA, brainB } = JSON.parse(data);
+    let gameID = await makeGame({
+      map,
+      brains: [brainA, brainB]
+    });
+
+    emitStatus("adding game to queue");
+
+    if (lpush) {
+      await redis.lpush("gameQueue", gameID);
+    } else {
+      await redis.rpush("gameQueue", gameID);
+    }
+
+    await redis.publish("ping", "T");
+  });
+
   client.on("fetchRanking", async _ => {
     let scoreData = await redis.zrevrangebyscore(
       "ranking",
@@ -279,8 +302,10 @@ io.on("connection", function(client) {
 
     let buf = await redis.getBuffer(key + ":log_gz");
 
-    if (buf) client.emit("gameData", buf);
-    else emitStatus({ negative: true, message: "couldn't find game" });
+    if (buf) {
+      client.emit("gameData", buf);
+      emitStatus("fetched game");
+    } else emitStatus({ negative: true, message: "couldn't find game" });
   });
 
   client.on("listGames", _ => {
@@ -363,7 +388,6 @@ setInterval(async () => {
       game_brains = game_brains.slice(0, 2);
       let gameID = await makeGame({
         scoreOnly: true,
-        seed: Math.round(Math.random() * 1337 * 420),
         brains: game_brains,
         map
       });

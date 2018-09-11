@@ -1,51 +1,27 @@
 import * as React from "react";
-import {
-  Container,
-  Menu,
-  Dimmer,
-  Loader,
-  Segment,
-  Form,
-  TextArea,
-  Button,
-  Message,
-  Table,
-  Input
-} from "semantic-ui-react";
+import { Container, Menu, Segment, Message } from "semantic-ui-react";
 import { connect } from "socket.io-client";
 import { IInit } from "./protocol";
 
-import { GameVis } from "./GameVis";
-import { GameGrid } from "./GameGrid";
 import { GzipGameStream } from "./GzipGameStream";
-import { getInitialSize } from "./StepManager";
 
-interface RankingEntry {
-  key: string;
-  name: string;
-  elo: number;
-  games: number;
-}
-
-interface MapPoolEntry {
-  key: string;
-  weight: number;
-  rounds: number;
-  games: number;
-  name: string;
-  time: number;
-}
-
-interface GameListEntry {
-  key: string;
-  map: string;
-  ttl: number;
-  rounds: number;
-  brains: string[];
-}
+import { Ranking, RankingEntry } from "./turnierserver/Ranking";
+import { Games, GameListEntry } from "./turnierserver/Games";
+import { Maps, MapPoolEntry } from "./turnierserver/Maps";
+import { SubmitMap } from "./turnierserver/SubmitMap";
+import { SubmitBrain } from "./turnierserver/SubmitBrain";
+import { TriggerGame } from "./turnierserver/TriggerGame";
+import { VisGame } from "./turnierserver/VisGame";
 
 interface State {
-  page: "ranking" | "games" | "maps" | "submitMap" | "submitBrain" | "visGame" | "triggerGame";
+  page:
+    | "ranking"
+    | "games"
+    | "maps"
+    | "submitMap"
+    | "submitBrain"
+    | "visGame"
+    | "triggerGame";
   status: { message: string; negative?: boolean; title?: string };
   visID?: string;
   visGame?: GzipGameStream;
@@ -58,8 +34,6 @@ interface State {
 export class Turnierserver extends React.Component<{}, State> {
   private ws: any; // TODO: @types/socket.io-client
   private refreshTimer: number;
-  private mapForm: TextArea;
-  private brainForm: TextArea;
 
   constructor(props: {}) {
     super(props);
@@ -83,6 +57,10 @@ export class Turnierserver extends React.Component<{}, State> {
         break;
       case "maps":
         this.ws.emit("listMaps");
+        break;
+      case "triggerGame":
+        this.ws.emit("listMaps");
+        this.ws.emit("fetchRanking");
         break;
       default:
         return;
@@ -178,271 +156,38 @@ export class Turnierserver extends React.Component<{}, State> {
             <p>{this.state.status.message}</p>
           </Message>
           {activeItem === "ranking" ? (
-            <>
-              <Dimmer active={this.state.ranking === undefined}>
-                <Loader>Loading</Loader>
-              </Dimmer>
-              <Table celled fixed>
-                <Table.Header>
-                  <Table.Row>
-                    <Table.HeaderCell>Key</Table.HeaderCell>
-                    <Table.HeaderCell>Name</Table.HeaderCell>
-                    <Table.HeaderCell>Elo</Table.HeaderCell>
-                    <Table.HeaderCell>Rated Games</Table.HeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {this.state.ranking !== undefined
-                    ? this.state.ranking.map(({ key, name, elo, games }) => (
-                        <Table.Row key={key}>
-                          <Table.Cell>{key}</Table.Cell>
-                          <Table.Cell>{name}</Table.Cell>
-                          <Table.Cell>{elo}</Table.Cell>
-                          <Table.Cell>{games}</Table.Cell>
-                        </Table.Row>
-                      ))
-                    : null}
-                </Table.Body>
-              </Table>
-            </>
+            <Ranking ranking={this.state.ranking} />
           ) : null}
           {activeItem === "games" ? (
-            <>
-              <Table celled fixed>
-                <Table.Header>
-                  <Table.Row>
-                    <Table.HeaderCell>Key</Table.HeaderCell>
-                    <Table.HeaderCell>Map</Table.HeaderCell>
-                    <Table.HeaderCell>Expires in</Table.HeaderCell>
-                    <Table.HeaderCell>Rounds</Table.HeaderCell>
-                    <Table.HeaderCell>Brain A</Table.HeaderCell>
-                    <Table.HeaderCell>Brain B</Table.HeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {this.state.gameList !== undefined
-                    ? this.state.gameList.map(
-                        ({ key, map, ttl, rounds, brains }) => (
-                          <Table.Row key={key}>
-                            <Table.Cell>
-                              <a
-                                href="#"
-                                onClick={() => {
-                                  this.ws.emit("loadGame", key);
-                                  this.setState({
-                                    visID: key,
-                                    page: "visGame"
-                                  });
-                                }}
-                              >
-                                {key}
-                              </a>
-                            </Table.Cell>
-                            <Table.Cell>{map}</Table.Cell>
-                            <Table.Cell>{ttl} s</Table.Cell>
-                            <Table.Cell>{rounds}</Table.Cell>
-                            <Table.Cell>{brains[0]}</Table.Cell>
-                            <Table.Cell>{brains[1]}</Table.Cell>
-                          </Table.Row>
-                        )
-                      )
-                    : null}
-                </Table.Body>
-              </Table>
-            </>
+            <Games
+              gameList={this.state.gameList}
+              loadVis={visID => {
+                this.ws.emit("loadGame", visID);
+                this.setState({ visID, page: "visGame" });
+              }}
+            />
           ) : null}
-
           {activeItem === "maps" ? (
-            <>
-              <Table celled fixed>
-                <Table.Header>
-                  <Table.Row>
-                    <Table.HeaderCell>Key</Table.HeaderCell>
-                    <Table.HeaderCell>Name</Table.HeaderCell>
-                    <Table.HeaderCell>Weight</Table.HeaderCell>
-                    <Table.HeaderCell>Rounds</Table.HeaderCell>
-                    <Table.HeaderCell>Rated Games</Table.HeaderCell>
-                    <Table.HeaderCell>Avg Simulation Time</Table.HeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {this.state.maps !== undefined
-                    ? this.state.maps.map(
-                        ({ key, weight, rounds, games, name, time }) => (
-                          <Table.Row key={key}>
-                            <Table.Cell>
-                              <a
-                                href="#"
-                                onClick={() => {
-                                  this.ws.emit("loadGame", key);
-                                  this.setState({
-                                    visID: key,
-                                    page: "visGame"
-                                  });
-                                }}
-                              >
-                                {key}
-                              </a>
-                            </Table.Cell>
-                            <Table.Cell>{name}</Table.Cell>
-                            <Table.Cell>{weight}</Table.Cell>
-                            <Table.Cell>{rounds}</Table.Cell>
-                            <Table.Cell>{games}</Table.Cell>
-                            <Table.Cell>{time} ms</Table.Cell>
-                          </Table.Row>
-                        )
-                      )
-                    : null}
-                </Table.Body>
-              </Table>
-            </>
+            <Maps
+              maps={this.state.maps}
+              loadVis={visID => {
+                this.ws.emit("loadGame", visID);
+                this.setState({ visID, page: "visGame" });
+              }}
+            />
           ) : null}
-
           {activeItem === "submitMap" ? (
-            <>
-              <Form>
-                <Form.Field>
-                  <label>Nickname</label>
-                  <Input />
-                  <label>Map Data</label>
-                  <TextArea
-                    style={{ fontFamily: "monospace" }}
-                    placeholder={"2\n2\nA.\n.B"}
-                    ref={e => (this.mapForm = e!)}
-                  />
-                </Form.Field>
-                <Button.Group fluid>
-                  <Button
-                    type="submit"
-                    basic
-                    color="green"
-                    onClick={() => {
-                      const map = (this.mapForm as any).ref.value;
-                      this.ws.emit(
-                        "mapRequest",
-                        JSON.stringify({
-                          map,
-                          preview: true
-                        })
-                      );
-                    }}
-                  >
-                    Preview
-                  </Button>
-                  <Button
-                    type="submit"
-                    basic
-                    color="yellow"
-                    onClick={() => {
-                      const map = (this.mapForm as any).ref.value;
-                      this.ws.emit(
-                        "mapRequest",
-                        JSON.stringify({
-                          map,
-                          preview: false
-                        })
-                      );
-                    }}
-                  >
-                    Submit to Pool
-                  </Button>
-                </Button.Group>
-              </Form>
-              {this.state.mapPreview ? (
-                <GameGrid
-                  size={getInitialSize(this.state.mapPreview)}
-                  {...this.state.mapPreview}
-                />
-              ) : null}
-            </>
+            <SubmitMap ws={this.ws} mapPreview={this.state.mapPreview} />
           ) : null}
-
-          {activeItem === "submitBrain" ? (
-            <>
-              <Form>
-                <Form.Field>
-                  <label>Brain Data</label>
-                  <TextArea
-                    style={{ fontFamily: "monospace" }}
-                    placeholder={'brain "noop" { jump 0\n}'}
-                    ref={e => (this.brainForm = e!)}
-                  />
-                </Form.Field>
-                <Button.Group fluid>
-                  <Button
-                    type="submit"
-                    basic
-                    color="yellow"
-                    onClick={() => {
-                      const brainStr = (this.brainForm as any).ref.value;
-                      this.ws.emit("brainRequest", brainStr);
-                    }}
-                  >
-                    Qualify brain
-                  </Button>
-                </Button.Group>
-              </Form>
-            </>
-          ) : null}
-
+          {activeItem === "submitBrain" ? <SubmitBrain ws={this.ws} /> : null}
           {activeItem === "triggerGame" ? (
-            <>
-              <Form>
-                <Form.Field>
-                  <label>Brain Data</label>
-                  <TextArea
-                    style={{ fontFamily: "monospace" }}
-                    placeholder={'brain "noop" { jump 0\n}'}
-                    ref={e => (this.brainForm = e!)}
-                  />
-                </Form.Field>
-                <Button.Group fluid>
-                  <Button
-                    type="submit"
-                    basic
-                    color="yellow"
-                    onClick={() => {
-                      const brainStr = (this.brainForm as any).ref.value;
-                      this.ws.emit("brainRequest", brainStr);
-                    }}
-                  >
-                    Qualify brain
-                  </Button>
-                </Button.Group>
-              </Form>
-            </>
+            <TriggerGame
+              ws={this.ws}
+              maps={this.state.maps}
+              ranking={this.state.ranking}
+            />
           ) : null}
-
-          {activeItem === "visGame" ? (
-            <>
-              <Form>
-                <Form.Field>
-                  <label>Game ID</label>
-                  <Input
-                    value={this.state.visID || ""}
-                    onChange={e =>
-                      this.setState({ visID: (e.target as any).value })
-                    }
-                  />
-                </Form.Field>
-                <Button.Group fluid>
-                  <Button
-                    type="submit"
-                    basic
-                    color="green"
-                    onClick={() => {
-                      this.ws.emit("loadGame", this.state.visID);
-                    }}
-                  >
-                    Query Database
-                  </Button>
-                </Button.Group>
-              </Form>
-              {this.state.visGame ? (
-                <GameVis game={this.state.visGame} />
-              ) : null}
-            </>
-          ) : null}
+          {activeItem === "visGame" ? <VisGame ws={this.ws} visGame={this.state.visGame} /> : null}
         </Segment>
       </Container>
     );

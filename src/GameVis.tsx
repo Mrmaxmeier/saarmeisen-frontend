@@ -95,19 +95,16 @@ export class GameVis extends React.Component<Props, State> {
     return (
       <div>
         <Container text>
-          <tr>
-            <th>HexSize</th>
-            <td>
-              <input
-                min={25}
-                type="number"
-                value={this.state.size}
-                onChange={e =>
-                  this.setState({ size: parseInt(e.target.value, 10) })
-                }
-              />
-            </td>
-          </tr>
+          <span>HexSize:</span>
+          <input
+            style={{ width: "5em" }}
+            min={25}
+            type="number"
+            value={this.state.size}
+            onChange={e =>
+              this.setState({ size: parseInt(e.target.value, 10) })
+            }
+          />
 
           {this.state.standings.length ? (
             <table style={{ textAlign: "center" }}>
@@ -145,7 +142,10 @@ export class GameVis extends React.Component<Props, State> {
             disabled={!this.stepManager.hasPrev()}
             onClick={() => {
               this.clearAutoStep();
-              this.setState(this.stepManager.prev());
+              this.setState({
+                ...this.stepManager.prev(),
+                size: this.state.size
+              });
             }}
           >
             Prev Step
@@ -169,7 +169,10 @@ export class GameVis extends React.Component<Props, State> {
             disabled={!this.stepManager.hasNext()}
             onClick={() => {
               this.clearAutoStep();
-              this.setState(this.stepManager.next());
+              this.setState({
+                ...this.stepManager.next(),
+                size: this.state.size
+              });
             }}
           >
             Next Step
