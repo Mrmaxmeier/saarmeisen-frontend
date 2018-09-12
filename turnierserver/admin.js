@@ -13,6 +13,10 @@ function expirePat(start) {
       redis.expire(key, 60);
     }
   });
+
+  return new Promise((resolve, reject) => {
+    stream.on("end", resolve);
+  });
 }
 
 async function getMapPool() {
@@ -39,9 +43,10 @@ function mainmenu() {
       {
         choices: [
           "edit map",
-          "remove brain",
-          "map maintenance",
-          "expire stuck games"
+          "remove brains",
+          "expire stuck brains:*",
+          "expire stuck game:*",
+          "map maintenance"
         ],
         type: "list",
         name: "action"
@@ -81,9 +86,9 @@ function mainmenu() {
             });
             await redis.set(key + ":name", res.name);
             console.log("ok");
-          } else if (res.action === 'delete map') {
-            expirePat(key)
-            await redis.zrem('mappool', key)
+          } else if (res.action === "delete map") {
+            expirePat(key);
+            await redis.zrem("mappool", key);
           }
           break;
         case "map maintenance":
@@ -98,23 +103,46 @@ function mainmenu() {
           }
           // await redis.publish("ping", "M");
           break;
-        case "remove brain":
+        case "remove brains":
           let brains = await redis.zrevrangebyscore("ranking", "inf", "0");
-          console.log(brains);
           let brainswithname = [];
           for (let key of brains) {
-            brainswithname.push(key + " % " + (await redis.get(key + ":name")));
+            let name = await redis.get(key + ":name");
+            let elo = await redis.zscore("ranking", key);
+            brainswithname.push(key + " % " + name + " % " + elo);
+            ui.log.write(key);
           }
           res = await inquirer.prompt({
             choices: brainswithname,
-            type: "list",
-            name: "brain"
+            type: "checkbox",
+            message: "select brains to be removed",
+            name: "brains"
           });
-          await expirePat(res.brain.split(" % ")[0]);
-          await redis.zrem("ranking", res.brain.split(" % ")[0]);
+          console.log(res);
+          for (let line of res.brains) {
+            let key = line.split(" % ")[0];
+            await redis.zrem("ranking", key);
+            await expirePat(key);
+            ui.log.write("removed " + line);
+          }
           break;
-        case "expire stuck games":
+        case "expire stuck game:*":
           await expirePat("games:");
+          break;
+        case "expire stuck brains:*":
+          let brainlike = await redis.keys("brains:*");
+          console.log(brainlike);
+          for (let key of brainlike) {
+            let brainkey = "brains:" + key.split(":")[1];
+            let elo = await redis.zscore("ranking", brainkey);
+            if (elo === null) {
+              ui.log.write("expire " + key);
+              await redis.expire(key, 120);
+            }
+          }
+          break;
+        default:
+          ui.log.write("unknown option " + res.action);
       }
       mainmenu();
     })

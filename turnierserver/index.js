@@ -388,7 +388,7 @@ io.on("connection", function(client) {
             );
           }
         }
-        games.sort((a, b) => a.ttl - b.ttl);
+        games.sort((a, b) => b.ttl - a.ttl);
 
         emitCache(JSON.stringify(games));
       });
