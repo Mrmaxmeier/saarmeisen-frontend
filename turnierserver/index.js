@@ -144,7 +144,7 @@ async function makeGame(data) {
   let key = "games:" + hash(JSON.stringify(data));
   for (let e of Object.keys(data)) {
     if (e !== "brains") pipeline.set(key + ":" + e, data[e]);
-    pipeline.expire(key + ":" + e, 60);
+    pipeline.expire(key + ":" + e, 600);
   }
   pipeline.del(key + ":brains");
   pipeline.del(key + ":error");

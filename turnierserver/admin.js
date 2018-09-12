@@ -69,7 +69,7 @@ function mainmenu() {
           console.log("name", name);
           console.log(map);
           res = await inquirer.prompt({
-            choices: ["edit name", "edit weight"],
+            choices: ["edit name", "delete map", "edit weight"],
             type: "list",
             name: "action"
           });
@@ -81,6 +81,9 @@ function mainmenu() {
             });
             await redis.set(key + ":name", res.name);
             console.log("ok");
+          } else if (res.action === 'delete map') {
+            expirePat(key)
+            await redis.zrem('mappool', key)
           }
           break;
         case "map maintenance":
