@@ -474,6 +474,12 @@ setInterval(async () => {
       let brainList = Object.keys(brains);
       let brainA = brainList[Math.floor(Math.random() * brainList.length)];
       let brainB = getMatch(brainA);
+
+      // P(getMatch A B) != P(getMatch B A)
+      // some maps might not be fair, randomizing the order should fix this
+      if (Math.random() > 0.5) {
+        [brainA, brainB] = [brainB, brainA];
+      }
       console.log("[Q]", brainA, "vs", brainB, brains[brainA], brains[brainB]);
       let gameID = await makeGame({
         scoreOnly: true,
