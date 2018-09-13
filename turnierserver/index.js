@@ -12,12 +12,13 @@ redis.defineCommand("expMovingAverage", {
   lua: `redis.call('set', KEYS[1], (0.95 * (redis.call('get', KEYS[1])) or KEYS[2]) + (1.0 - 0.95) * KEYS[2])`
 });
 
-redis.set("maps:sample", "2\n2\n.A\nB.");
+/*
 redis.set(
   "maps:qualification",
   "4\n4\n" + "####\n" + "A..B\n" + "A11B\n" + ".99."
 );
 redis.set("maps:qualification:rounds", 10000);
+*/
 redis.set("brains:noop", 'brain "Noop" {\njump 0\n}');
 redis.set("brains:noop:name", "Noop");
 
@@ -216,7 +217,7 @@ io.on("connection", function(client) {
         unlinkKeys(key);
         emitStatus("Got map preview");
       } else {
-        await redis.set(key + ":rounds", 10000);
+        await redis.set(key + ":rounds", 100000);
         await redis.set(key + ":time", 100);
         await redis.zadd("mappool", 1, key);
         emitStatus("Submitted to the map-pool");
@@ -240,7 +241,7 @@ io.on("connection", function(client) {
     redis.set(key + ":name", name);
     redis.set(key + ":games", 0);
     let qualification = await makeGame({
-      brains: [key, "brains:noop"],
+      brains: [key, "brains:liechtenstein"],
       map: "maps:qualification",
       seed: 123
     });

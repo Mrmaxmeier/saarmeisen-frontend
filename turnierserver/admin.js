@@ -44,6 +44,7 @@ function mainmenu() {
         choices: [
           "edit map",
           "remove brains",
+          "remove maps",
           "expire stuck brains:*",
           "expire stuck game:*",
           "map maintenance"
@@ -92,16 +93,18 @@ function mainmenu() {
           }
           break;
         case "map maintenance":
-          // needs to be run twice
-          let maps = Object.keys(await getMapPool());
-          for (let key of maps) {
-            console.log(key);
-            // await redis.rpush("mapQueue", key);
-            await redis.persist(key + ":log_gz");
-            await redis.set(key + ":rounds", 10000);
-            await redis.persist(key + ":rounds");
+          {
+            // needs to be run twice
+            const maps = Object.keys(await getMapPool());
+            for (let key of maps) {
+              console.log(key);
+              // await redis.rpush("mapQueue", key);
+              await redis.persist(key + ":log_gz");
+              await redis.set(key + ":rounds", 10000);
+              await redis.persist(key + ":rounds");
+            }
+            // await redis.publish("ping", "M");
           }
-          // await redis.publish("ping", "M");
           break;
         case "remove brains":
           let brains = await redis.zrevrangebyscore("ranking", "inf", "0");
@@ -124,6 +127,32 @@ function mainmenu() {
             await redis.zrem("ranking", key);
             await expirePat(key);
             ui.log.write("removed " + line);
+          }
+          break;
+        case "remove maps":
+          {
+            let maps = await redis.zrevrangebyscore("mappool", "inf", "-inf");
+            let mapswithname = [];
+            for (let key of maps) {
+              let name = await redis.get(key + ":name");
+              mapswithname.push(key + " % " + name);
+              ui.log.write(key + " % " + name);
+              let data = await redis.get(key);
+              ui.log.write(data);
+            }
+            res = await inquirer.prompt({
+              choices: mapswithname,
+              type: "checkbox",
+              message: "select maps to be removed",
+              name: "maps"
+            });
+            console.log(res);
+            for (let line of res.maps) {
+              let key = line.split(" % ")[0];
+              await redis.zrem("mappool", key);
+              await expirePat(key);
+              ui.log.write("removed " + line);
+            }
           }
           break;
         case "expire stuck game:*":
@@ -151,4 +180,6 @@ function mainmenu() {
       throw e;
     });
 }
+
+debugger;
 mainmenu();
