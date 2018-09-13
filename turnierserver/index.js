@@ -54,7 +54,7 @@ function weightedRand(spec) {
   for (let key of Object.keys(spec)) {
     total += spec[key];
   }
-  let sum = 0;
+  let sum = Number.MIN_VALUE;
   let r = Math.random() * total;
   for (let key of Object.keys(spec)) {
     sum += spec[key];
@@ -95,7 +95,7 @@ async function processResult(key) {
     await redis.zadd("ranking", res.A, brainA);
     await redis.zadd("ranking", res.B, brainB);
   } else {
-    console.log("expected 2 brains");
+    console.log("expected 2 brains, got", brains);
   }
 }
 
@@ -445,8 +445,18 @@ io.on("connection", function(client) {
   });
 });
 
-let brains = [];
+let brains = {};
 let mapPool = {};
+
+function getMatch(brain) {
+  let choices = {};
+  for (let other of Object.keys(brains)) {
+    let dist = brains[other] - brains[brain];
+    let compatibility = Math.exp((dist * dist) / -2000);
+    choices[other] = compatibility;
+  }
+  return weightedRand(choices);
+}
 
 setInterval(async () => {
   let count = await redis.llen("gameQueue");
@@ -461,12 +471,13 @@ setInterval(async () => {
     console.log("queueing random games");
     for (let i = 0; i < 50; i++) {
       let map = weightedRand(mapPool);
-      let game_brains = brains.slice();
-      shuffleArray(game_brains);
-      game_brains = game_brains.slice(0, 2);
+      let brainList = Object.keys(brains);
+      let brainA = brainList[Math.floor(Math.random() * brainList.length)];
+      let brainB = getMatch(brainA);
+      console.log("[Q]", brainA, "vs", brainB, brains[brainA], brains[brainB]);
       let gameID = await makeGame({
         scoreOnly: true,
-        brains: game_brains,
+        brains: [brainA, brainB],
         map
       });
       await redis.rpush("gameQueue", gameID);
@@ -476,14 +487,19 @@ setInterval(async () => {
 }, 5000);
 
 async function refreshBrains() {
-  brains = await redis.zrevrangebyscore(
+  let brains_ = await redis.zrevrangebyscore(
     "ranking",
     "inf",
     "-inf",
+    "WITHSCORES",
     "LIMIT",
     0,
     50
   );
+  brains = {};
+  while (brains_.length) {
+    brains[brains_.shift()] = parseInt(brains_.shift());
+  }
 }
 refreshBrains();
 setInterval(refreshBrains, 1000 * 60 * 10);

@@ -47,6 +47,7 @@ function mainmenu() {
           "remove maps",
           "expire stuck brains:*",
           "expire stuck game:*",
+          "reset elo",
           "map maintenance"
         ],
         type: "list",
@@ -159,17 +160,30 @@ function mainmenu() {
           await expirePat("games:");
           break;
         case "expire stuck brains:*":
-          let brainlike = await redis.keys("brains:*");
-          console.log(brainlike);
-          for (let key of brainlike) {
-            let brainkey = "brains:" + key.split(":")[1];
-            let elo = await redis.zscore("ranking", brainkey);
-            if (elo === null) {
-              ui.log.write("expire " + key);
-              await redis.expire(key, 120);
+          {
+            let brainlike = await redis.keys("brains:*");
+            console.log(brainlike);
+            for (let key of brainlike) {
+              let brainkey = "brains:" + key.split(":")[1];
+              let elo = await redis.zscore("ranking", brainkey);
+              if (elo === null) {
+                ui.log.write("expire " + key);
+                let data = await redis.get(key);
+                ui.log.write(data);
+                await redis.expire(key, 120);
+              }
             }
           }
           break;
+        case "reset elo": {
+          let brains = await redis.zrevrangebyscore("ranking", "inf", "0");
+          let p = redis.pipeline();
+          for (let brain of brains) {
+            p.zadd("ranking", 1200, brain);
+          }
+          await p.exec();
+          break;
+        }
         default:
           ui.log.write("unknown option " + res.action);
       }
@@ -181,5 +195,4 @@ function mainmenu() {
     });
 }
 
-debugger;
 mainmenu();
