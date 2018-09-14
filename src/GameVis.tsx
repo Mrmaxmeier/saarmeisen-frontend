@@ -199,7 +199,7 @@ export class GameVis extends React.Component<Props, State> {
           >
             <option value="1,100">1, 100ms</option>
             <option value="10,100">10, 100ms</option>
-            <option value="100,100">1k, 1s</option>
+            <option value="100,100">100, 100ms</option>
             <option value="1000,1000">1k, 1s</option>
             <option value="10000,1000">10k, 1s</option>
           </select>

@@ -11,7 +11,7 @@ function updateRating(expected, actual, current) {
 module.exports = function process(a, b) {
   let expectedA = getExpected(a.elo, b.elo);
   let expectedB = getExpected(b.elo, a.elo);
-  let rating = {};
+
   let actualA = 0.5;
   let actualB = 0.5;
   if (a.points > b.points) {

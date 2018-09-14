@@ -452,7 +452,7 @@ function getMatch(brain) {
   let choices = {};
   for (let other of Object.keys(brains)) {
     let dist = brains[other] - brains[brain];
-    let compatibility = Math.exp((dist * dist) / -2000);
+    let compatibility = Math.exp((dist * dist) / -50e4);
     choices[other] = compatibility;
   }
   return weightedRand(choices);

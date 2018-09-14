@@ -176,10 +176,11 @@ function mainmenu() {
           }
           break;
         case "reset elo": {
-          let brains = await redis.zrevrangebyscore("ranking", "inf", "0");
+          let brains = await redis.zrevrangebyscore("ranking", "inf", "-inf");
           let p = redis.pipeline();
           for (let brain of brains) {
             p.zadd("ranking", 1200, brain);
+            p.set(brain + ":games", 0)
           }
           await p.exec();
           break;
