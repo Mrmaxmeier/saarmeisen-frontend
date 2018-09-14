@@ -483,7 +483,6 @@ function getMatch(brain) {
 }
 
 setInterval(async () => {
-  return;
   let count = await redis.llen("gameQueue");
   if (count > 50) {
     console.log("[in queue]", count, "games");
