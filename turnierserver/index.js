@@ -1,5 +1,8 @@
 const server = require("http").createServer();
 const io = require("socket.io")(server);
+const ss = require("socket.io-stream");
+const stream = require("stream");
+const streamBuffers = require("stream-buffers");
 const Redis = require("ioredis");
 const crypto = require("crypto");
 
@@ -346,11 +349,30 @@ io.on("connection", function(client) {
   client.on("loadGame", async key => {
     console.log("[G]", key);
 
-    let buf = await redis.getBuffer(key + ":log_gz");
+    let buffer = await redis.getBuffer(key + ":log_gz");
+    let rounds = await redis.get(key + ":rounds");
 
-    if (buf) {
+    if (buffer) {
       emitStatus("transferring " + key);
-      client.emit("gameData", buf);
+
+      const gzStream = ss.createStream();
+      let CHUNK_SIZE = 163840;
+
+      ss(client).emit("gz-stream", gzStream, {
+        key,
+        rounds,
+        byteCount: buffer.length
+      });
+
+      let chunkingStreamBuffer = new streamBuffers.ReadableStreamBuffer({
+        frequency: 100,
+        chunkSize: CHUNK_SIZE
+      });
+
+      chunkingStreamBuffer.pipe(gzStream);
+      chunkingStreamBuffer.put(buffer);
+      chunkingStreamBuffer.stop()
+
       emitStatus("fetched game");
     } else emitStatus({ negative: true, message: "couldn't find game" });
   });
@@ -424,13 +446,15 @@ io.on("connection", function(client) {
   client.on("stats", async _ => {
     let avg_rtt = await redis.get("stats:avg_rtt");
     let queued = await redis.llen("gameQueue");
+    let mem_stats = await redis.memory("stats");
 
     client.emit(
       "stats",
       JSON.stringify({
         avgRtt: parseFloat(avg_rtt),
         queued: parseInt(queued),
-        connections: io.engine.clientsCount
+        connections: io.engine.clientsCount,
+        redisMem: mem_stats[3] // total.allocated
       })
     );
   });
@@ -459,6 +483,7 @@ function getMatch(brain) {
 }
 
 setInterval(async () => {
+  return;
   let count = await redis.llen("gameQueue");
   if (count > 50) {
     console.log("[in queue]", count, "games");

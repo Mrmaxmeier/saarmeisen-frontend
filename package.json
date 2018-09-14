@@ -19,7 +19,8 @@
     "react-dom": "^16.4.2",
     "semantic-ui-css": "^2.3.3",
     "semantic-ui-react": "^0.82.3",
-    "socket.io-client": "^2.1.1"
+    "socket.io-client": "^2.1.1",
+    "socket.io-stream": "^0.9.1"
   },
   "scripts": {
     "start": "react-scripts-ts start",

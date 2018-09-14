@@ -4,6 +4,7 @@ import {
   Menu,
   Segment,
   Message,
+  Progress,
   Statistic
 } from "semantic-ui-react";
 import { connect } from "socket.io-client";
@@ -19,6 +20,8 @@ import { SubmitBrain } from "./turnierserver/SubmitBrain";
 import { TriggerGame } from "./turnierserver/TriggerGame";
 import { VisGame } from "./turnierserver/VisGame";
 
+const socketstream: any = require("socket.io-stream");
+
 interface State {
   page:
     | "ranking"
@@ -29,7 +32,12 @@ interface State {
     | "visGame"
     | "triggerGame"
     | "stats";
-  status: { message: string; negative?: boolean; title?: string };
+  status: {
+    message: string;
+    negative?: boolean;
+    title?: string;
+    progress?: number;
+  };
   visID?: string;
   visGame?: GzipGameStream;
   ranking?: RankingEntry[];
@@ -40,8 +48,13 @@ interface State {
     avgRtt: number;
     queued: number;
     connections: number;
+    redisMem: number;
   };
   banner?: any;
+}
+
+function formatStorage(n: number) {
+  return `${Math.round(n / 10e5)} MB`;
 }
 
 export class Turnierserver extends React.Component<{}, State> {
@@ -130,6 +143,38 @@ export class Turnierserver extends React.Component<{}, State> {
       this.setState({ visGame: new GzipGameStream(new Uint8Array(data)) });
     });
 
+    socketstream(this.ws).on("gz-stream", (stream: any, data: any) => {
+      this.setState({ visGame: undefined, visID: data.data });
+      let datas: Uint8Array[] = [];
+      let byteCount = 0;
+      stream.on("data", (chunk: any) => {
+        datas.push(chunk);
+        byteCount += chunk.length;
+        this.setState({
+          status: {
+            title: "transferring " + data.key,
+            message:
+              formatStorage(byteCount) + " / " + formatStorage(data.byteCount),
+            progress: byteCount / data.byteCount
+          }
+        });
+      });
+      stream.on("end", (aa: any) => {
+        let buffer = new Uint8Array(byteCount);
+        let bc = 0;
+        for (let chunk of datas) {
+          buffer.set(chunk, bc);
+          bc += chunk.length;
+        }
+        this.setState({
+          status: {
+            message: "transfer finished"
+          },
+          visGame: new GzipGameStream(new Uint8Array(buffer))
+        });
+      });
+    });
+
     this.ws.on("stats", (data: string) => {
       this.setState({ stats: JSON.parse(data) });
     });
@@ -181,6 +226,10 @@ export class Turnierserver extends React.Component<{}, State> {
               <Message.Header>{this.state.status.title}</Message.Header>
             ) : null}
             <p>{this.state.status.message}</p>
+
+            {this.state.status.progress ? (
+              <Progress percent={this.state.status.progress * 100} indicating />
+            ) : null}
           </Message>
           {activeItem === "ranking" ? (
             <Ranking ranking={this.state.ranking} />
@@ -233,10 +282,18 @@ export class Turnierserver extends React.Component<{}, State> {
                 </Statistic.Value>
                 <Statistic.Label>Active Connections</Statistic.Label>
               </Statistic>
+              <Statistic>
+                <Statistic.Value>
+                  {formatStorage(this.state.stats.redisMem)}
+                </Statistic.Value>
+                <Statistic.Label>Redis Memory</Statistic.Label>
+              </Statistic>
             </Statistic.Group>
           ) : null}
         </Segment>
-        {this.state.banner ? <Message attached="bottom" {...this.state.banner} /> : null}
+        {this.state.banner ? (
+          <Message attached="bottom" {...this.state.banner} />
+        ) : null}
         {activeItem === "visGame" ? (
           <VisGame ws={this.ws} visGame={this.state.visGame} />
         ) : null}
