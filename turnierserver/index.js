@@ -269,19 +269,21 @@ io.on("connection", function(client) {
       }
 
       let ptsA = await redis.hget(qualification + ":result:points", "A");
+      let ptsB = await redis.hget(qualification + ":result:points", "B");
       ptsA = (ptsA && JSON.parse(ptsA)) || 0;
-      if (ptsA > 0) {
+      ptsB = (ptsB && JSON.parse(ptsB)) || 0;
+      if (ptsA > ptsB) {
         await redis.zadd("ranking", 1200, key);
         emitStatus({
           title: "Qualified",
-          message: `'${name}' reached ${ptsA} points`
+          message: `'${name}' reached ${ptsA} points, qual ai got ${ptsB} points`
         });
         refreshBrains();
       } else {
         emitStatus({
           negative: true,
           title: "Not qualified",
-          message: `'${name}' reached ${ptsA} points`
+          message: `'${name}' reached ${ptsA} points, qual ai got ${ptsB} points`
         });
         unlinkKeys(key);
       }
