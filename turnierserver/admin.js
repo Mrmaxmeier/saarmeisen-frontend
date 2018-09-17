@@ -37,6 +37,12 @@ async function getMapPool() {
   return mapPool;
 }
 
+function sleep(ms) {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function mainmenu() {
   inquirer
     .prompt([
@@ -95,14 +101,21 @@ function mainmenu() {
           break;
         case "map maintenance":
           {
-            // needs to be run twice
             const maps = Object.keys(await getMapPool());
             for (let key of maps) {
-              console.log(key);
-              // await redis.rpush("mapQueue", key);
-              await redis.persist(key + ":log_gz");
-              await redis.set(key + ":rounds", 10000);
-              await redis.persist(key + ":rounds");
+              let cur_log_len = await redis.strlen(key + ":log_gz");
+              if (cur_log_len < 10) {
+                ui.log.write("generating log for " + key);
+                await redis.rpush("mapQueue", key);
+                while (cur_log_len < 10) {
+                  cur_log_len = await redis.strlen(key + ":log_gz");
+                  await sleep(100);
+                }
+                ui.log.write("new preview length: " + cur_log_len);
+                await redis.persist(key + ":log_gz");
+              } else {
+                ui.log.write("got preview: " + key);
+              }
             }
             // await redis.publish("ping", "M");
           }
@@ -180,7 +193,7 @@ function mainmenu() {
           let p = redis.pipeline();
           for (let brain of brains) {
             p.zadd("ranking", 1200, brain);
-            p.set(brain + ":games", 0)
+            p.set(brain + ":games", 0);
           }
           await p.exec();
           break;
