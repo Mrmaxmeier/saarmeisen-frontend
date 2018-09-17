@@ -153,7 +153,7 @@ export class JsonGZIPStream {
           return { end: true };
         }
         this.consumeTokens([","]);
-        let step = JSON.parse(this.toDecode.slice(1));
+        let step = JSON.parse(this.toDecode);
         this.toDecode = "";
         return { step };
       }

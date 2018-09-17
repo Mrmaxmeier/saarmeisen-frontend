@@ -58,6 +58,7 @@ class App extends React.Component<{}, IState> {
       this.setState({ game: new GzipGameStream(buf) });
     } else {
       console.error("can't handle", filename);
+      alert("expecter .json or .json.gz file")
     }
   }
 
