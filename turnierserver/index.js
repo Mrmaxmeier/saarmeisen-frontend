@@ -356,7 +356,7 @@ io.on("connection", function(client) {
       emitStatus("transferring " + key);
 
       const gzStream = ss.createStream();
-      let CHUNK_SIZE = 163840;
+      let CHUNK_SIZE = 1024 * 1024;
 
       ss(client).emit("gz-stream", gzStream, {
         key,
@@ -371,10 +371,12 @@ io.on("connection", function(client) {
 
       chunkingStreamBuffer.pipe(gzStream);
       chunkingStreamBuffer.put(buffer);
-      chunkingStreamBuffer.stop()
+      chunkingStreamBuffer.stop();
 
       emitStatus("fetched game");
-    } else emitStatus({ negative: true, message: "couldn't find game" });
+    } else {
+      emitStatus({ negative: true, message: "couldn't find game" });
+    }
   });
 
   client.on("listGames", _ => {
