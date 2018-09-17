@@ -152,6 +152,7 @@ export class GameVis extends React.Component<Props, State> {
                   <th>Color</th>
                   <th>Score</th>
                   <th>Ants</th>
+                  <th>Name</th>
                 </tr>
                 {this.state.standings.map(({ score, swarm_id, ants }, i) => (
                   <tr key={i}>
@@ -159,6 +160,7 @@ export class GameVis extends React.Component<Props, State> {
                     <td style={{ backgroundColor: FieldColors[swarm_id] }} />
                     <td>{score}</td>
                     <td>{ants}</td>
+                    <td>{this.stepManager.init.brains.find(brains => brains.swarm_id === swarm_id)!.name} </td>
                   </tr>
                 ))}
               </tbody>
