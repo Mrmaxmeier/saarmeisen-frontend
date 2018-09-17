@@ -47,14 +47,14 @@ export class FieldVis extends React.PureComponent<Props> {
   render() {
     const { x, y, type, ant, food, markers } = this.props.field;
 
-    let hasMarkers = markers.length !== 0;
+    let hasMarkers = markers !== undefined && markers.length !== 0;
     if (hasMarkers) {
       hasMarkers = !!markers.find(a => a.values.indexOf(true) !== -1);
     }
 
     let markerColor = null;
     if (this.props.showMarkers !== null) {
-      let data = markers.find(
+      let data = (markers || []).find(
         marker => marker.swarm_id === this.props.showMarkers
       );
       let c = -1;

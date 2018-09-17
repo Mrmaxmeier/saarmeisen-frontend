@@ -56,6 +56,9 @@ export class GzipGameStream implements IStepManager {
       )
     };
     this.buffer = this.stream.fsm_step().step;
+    if (!this.buffer) {
+      this.state.stepCount = this.state.currentStepIndex;
+    }
     return this.state;
   }
   prev(): GameState {
@@ -96,6 +99,28 @@ export class JsonGZIPStream {
     this.bracketLevel = 1;
   }
 
+  consumeTokens(tokens: string[]) {
+    for (let token of tokens) {
+      while (
+        this.toDecode[0] === " " ||
+        this.toDecode[0] === "\n" ||
+        this.toDecode[0] === "\t"
+      ) {
+        this.toDecode = this.toDecode.slice(1);
+      }
+      if (!this.toDecode.startsWith(token)) {
+        throw Error(
+          "the json file, in case this is actually gzipped json, is not supported\n" +
+            `expected token '${token}', got ${this.toDecode.slice(
+              0,
+              10
+            )}... instead`
+        );
+      }
+      this.toDecode = this.toDecode.slice(token.length);
+    }
+  }
+
   fsm_step(): { end?: boolean; init?: any; step?: any } {
     console.log("fsm_step");
     if (this.stage === 3) {
@@ -105,38 +130,33 @@ export class JsonGZIPStream {
       //
     }
     switch (this.stage) {
-      case 0:
-        if (!this.toDecode.startsWith('{"init":{')) {
-          throw Error(
-            "the json file, in case this is actually gzipped json, is not supported"
-          );
-        }
-        let initStr = this.toDecode.slice(this.toDecode.indexOf("{", 1));
+      case 0: {
+        this.consumeTokens(["{", '"init"', ":"]);
+        let init = JSON.parse(this.toDecode);
         this.braceLevel = 0;
         this.bracketLevel = 1;
         this.toDecode = "";
         this.stage += 1;
-        return { init: JSON.parse(initStr) };
-      case 1:
-        if (!this.toDecode.startsWith(',"steps":[{')) {
-          throw new Error("unlucky json formatting");
-        }
-        let stepStr = this.toDecode.slice(this.toDecode.indexOf("{"));
+        return { init };
+      }
+      case 1: {
+        this.consumeTokens([",", '"steps"', ":", "["]);
+        let step = JSON.parse(this.toDecode);
         this.toDecode = "";
         this.stage += 1;
         this.bracketLevel = 1;
-        return { step: JSON.parse(stepStr) };
-      case 2:
+        return { step };
+      }
+      case 2: {
         if (this.bracketLevel === 0) {
           this.stage += 1;
           return { end: true };
         }
-        if (!this.toDecode.startsWith(",")) {
-          throw new Error("unlucky liste");
-        }
+        this.consumeTokens([","]);
         let step = JSON.parse(this.toDecode.slice(1));
         this.toDecode = "";
         return { step };
+      }
     }
     return {};
   }
